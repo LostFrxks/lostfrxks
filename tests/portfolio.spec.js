@@ -230,6 +230,13 @@ test('mobile layout keeps primary identity and actions reachable', async ({ page
   await expect(page.getByRole('heading', { name: /Artur Usenov/i })).toBeVisible();
   await expect(page.getByRole('link', { name: /GitHub/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /projects command/i })).toBeVisible();
+
+  const avatarBox = await page.locator('.avatar').boundingBox();
+  const panelBox = await page.locator('.identity-panel').boundingBox();
+
+  expect(avatarBox.width).toBeGreaterThanOrEqual(220);
+  expect(avatarBox.height).toBeGreaterThanOrEqual(220);
+  expect(avatarBox.width).toBeLessThanOrEqual(panelBox.width);
 });
 
 test('mock social contacts include LinkedIn Telegram and Instagram', async ({ page }) => {

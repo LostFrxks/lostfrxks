@@ -614,8 +614,9 @@ h3 {
 }
 
 .avatar {
-  width: 9rem;
-  height: 9rem;
+  width: min(100%, 14rem);
+  aspect-ratio: 1;
+  height: auto;
   border: 1px solid var(--line-strong);
   object-fit: cover;
   filter: grayscale(0.25) contrast(1.05);
@@ -905,6 +906,10 @@ h3 {
 
   .identity-panel {
     grid-template-columns: 1fr;
+  }
+
+  .avatar {
+    width: min(100%, 16rem);
   }
 
   .project-grid {

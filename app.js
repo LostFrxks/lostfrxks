@@ -24,9 +24,13 @@
   const glyphs = '01{}[]<>/\\$#@lostfrxksARTURPYTSFASTAPI';
   const introRainAlphabet = introRain ? introRain.getAttribute('data-rain-alphabet') : '漢アイ가А01{}[]';
   const introNameAlphabet = '01{}[]<>/\\$#@ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const introRainNormalSpeed = 1;
+  const introRainDecryptSpeed = 0.24;
   const revealTargets = [];
   let columns = [];
   let introRainColumns = [];
+  let introRainSpeed = introRainNormalSpeed;
+  let introRainTargetSpeed = introRainNormalSpeed;
   let animationId = 0;
   let introRainAnimationId = 0;
   let introNameTimer = 0;
@@ -174,6 +178,17 @@
     return introRainAlphabet[Math.floor(Math.random() * introRainAlphabet.length)];
   }
 
+  function setIntroRainSpeedMode(mode) {
+    if (!introRain) {
+      return;
+    }
+
+    introRainTargetSpeed = mode === 'decrypting' ? introRainDecryptSpeed : introRainNormalSpeed;
+    introRain.dataset.rainSpeedMode = mode;
+    introRain.dataset.rainSpeedTarget = introRainTargetSpeed.toFixed(2);
+    introRain.dataset.rainSpeedCurrent = introRainSpeed.toFixed(2);
+  }
+
   function scrambleIntroName(lockedCount) {
     const finalText = introName.getAttribute('data-final-text') || 'Artur Usenov';
     return finalText
@@ -215,7 +230,15 @@
     }
 
     const fontSize = Number(introRain.dataset.fontSize || 22);
-    introRainContext.fillStyle = clear ? '#010604' : 'rgba(1, 6, 4, 0.14)';
+    const trailAlpha = introRainTargetSpeed < introRainNormalSpeed ? 0.08 : 0.14;
+    if (clear) {
+      introRainSpeed = introRainTargetSpeed;
+    } else {
+      introRainSpeed += (introRainTargetSpeed - introRainSpeed) * 0.08;
+    }
+
+    introRain.dataset.rainSpeedCurrent = introRainSpeed.toFixed(2);
+    introRainContext.fillStyle = clear ? '#010604' : `rgba(1, 6, 4, ${trailAlpha})`;
     introRainContext.fillRect(0, 0, window.innerWidth, window.innerHeight);
     introRainContext.font = `${fontSize}px JetBrains Mono, Consolas, monospace`;
     introRainContext.textBaseline = 'top';
@@ -231,7 +254,7 @@
       if (y > window.innerHeight + Math.random() * 700) {
         introRainColumns[index] = -fontSize * Math.floor(Math.random() * 12);
       } else {
-        introRainColumns[index] = y + fontSize;
+        introRainColumns[index] = y + fontSize * introRainSpeed;
       }
     }
   }
@@ -246,6 +269,7 @@
       return;
     }
 
+    setIntroRainSpeedMode('normal');
     resizeIntroRain();
     if (reducedMotion) {
       drawIntroRainFrame(false);
@@ -316,6 +340,7 @@
 
     introDismissed = true;
     window.clearInterval(introNameTimer);
+    setIntroRainSpeedMode('decrypting');
     introScreen.classList.add('intro-revealing');
     decryptIntroName();
   }

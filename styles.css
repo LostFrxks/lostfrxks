@@ -158,12 +158,12 @@ button:focus-visible {
   opacity: 0;
   transition:
     opacity 800ms ease,
-    letter-spacing 800ms ease,
     filter 800ms ease,
     text-shadow 800ms ease;
 }
 
 .intro-name {
+  --intro-name-spacing: clamp(0.55rem, 1.15vw, 1.15rem);
   position: relative;
   z-index: 1;
   display: block;
@@ -172,21 +172,20 @@ button:focus-visible {
   color: var(--text);
   font-size: clamp(1.95rem, 6.2vw, 5.8rem);
   font-weight: 800;
-  letter-spacing: clamp(0.55rem, 1.15vw, 1.15rem);
   line-height: 1;
   white-space: nowrap;
   text-align: center;
   text-shadow: 0 0 28px rgba(92, 255, 177, 0.38);
+  letter-spacing: var(--intro-name-spacing);
   filter: blur(0.35px);
   transition:
-    letter-spacing 1050ms cubic-bezier(0.22, 1, 0.36, 1),
     filter 1050ms ease,
     text-shadow 1050ms ease;
 }
 
 .intro-screen.intro-revealing .intro-name {
   color: var(--text);
-  letter-spacing: 0.02rem;
+  letter-spacing: var(--intro-name-spacing);
   filter: blur(0);
   text-shadow: 0 0 36px rgba(101, 231, 255, 0.56), 0 0 80px rgba(92, 255, 177, 0.2);
 }
@@ -614,7 +613,8 @@ h3 {
 }
 
 .avatar {
-  width: min(100%, 14rem);
+  width: 100%;
+  max-width: 18rem;
   aspect-ratio: 1;
   height: auto;
   border: 1px solid var(--line-strong);
@@ -909,7 +909,7 @@ h3 {
   }
 
   .avatar {
-    width: min(100%, 16rem);
+    max-width: none;
   }
 
   .project-grid {
@@ -940,8 +940,8 @@ h3 {
   }
 
   .intro-name {
+    --intro-name-spacing: clamp(0.22rem, 1.25vw, 0.42rem);
     font-size: clamp(1.55rem, 9vw, 3.2rem);
-    letter-spacing: clamp(0.22rem, 1.25vw, 0.42rem);
   }
 
   .mock-socials {

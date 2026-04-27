@@ -5,6 +5,12 @@ async function enterPortfolio(page) {
   await expect(page.locator('#intro-screen')).toBeHidden();
 }
 
+test('browser title uses the lostfrxks site name', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page).toHaveTitle('lostfrxks');
+});
+
 test('matrix intro scrambles central text then decrypts into Artur identity', async ({ page }) => {
   await page.goto('/');
 
@@ -35,7 +41,7 @@ test('matrix intro scrambles central text then decrypts into Artur identity', as
   const spreadDuring = await introName.evaluate((element) =>
     parseFloat(getComputedStyle(element).letterSpacing)
   );
-  expect(spreadDuring).toBeLessThan(spreadBefore);
+  expect(spreadDuring).toBeCloseTo(spreadBefore, 2);
   const immediateDecrypt = (await introName.textContent()).trim();
   expect(immediateDecrypt).not.toBe('Artur Usenov');
   await expect(introName).toHaveText('Artur Usenov');
@@ -72,6 +78,22 @@ test('intro is an opaque multilingual matrix rain screen without a boxed content
   expect(hasRainPixels).toBe(true);
 });
 
+test('intro rain slows down while the identity decrypts', async ({ page }) => {
+  await page.goto('/');
+
+  const rainCanvas = page.locator('#intro-rain');
+  await expect(rainCanvas).toHaveAttribute('data-rain-speed-mode', 'normal');
+
+  await page.getByRole('button', { name: /enter matrix intro/i }).click();
+
+  await expect(rainCanvas).toHaveAttribute('data-rain-speed-mode', 'decrypting');
+  await expect(rainCanvas).toHaveAttribute('data-rain-speed-target', '0.24');
+  await page.waitForTimeout(450);
+
+  const currentSpeed = Number(await rainCanvas.getAttribute('data-rain-speed-current'));
+  expect(currentSpeed).toBeLessThan(0.85);
+});
+
 test('intro exits through a reveal transition instead of a hard cut', async ({ page }) => {
   await page.goto('/');
 
@@ -88,6 +110,7 @@ test('intro exits through a reveal transition instead of a hard cut', async ({ p
 test('intro reveal keeps Artur name transition free of zoom scaling', async ({ page }) => {
   await page.goto('/');
 
+  const idleBox = await page.locator('[data-intro-name]').boundingBox();
   const idleScale = await page.locator('[data-intro-name]').evaluate((element) => {
     const transform = getComputedStyle(element).transform;
     if (transform === 'none') {
@@ -119,8 +142,11 @@ test('intro reveal keeps Artur name transition free of zoom scaling', async ({ p
   expect(decryptingScale.y).toBeCloseTo(1, 2);
 
   await expect(page.locator('[data-intro-name]')).toHaveText('Artur Usenov');
+  const finalBox = await page.locator('[data-intro-name]').boundingBox();
   await expect(page.locator('#intro-screen')).toHaveClass(/intro-exiting/);
   await page.waitForTimeout(180);
+
+  expect(finalBox.width).toBeGreaterThanOrEqual(idleBox.width * 0.97);
 
   const scales = await page.evaluate(() => {
     function readScale(selector) {
@@ -232,11 +258,14 @@ test('mobile layout keeps primary identity and actions reachable', async ({ page
   await expect(page.getByRole('button', { name: /projects command/i })).toBeVisible();
 
   const avatarBox = await page.locator('.avatar').boundingBox();
-  const panelBox = await page.locator('.identity-panel').boundingBox();
+  const panelContentWidth = await page.locator('.identity-panel').evaluate((element) => {
+    const styles = getComputedStyle(element);
+    return element.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
+  });
 
   expect(avatarBox.width).toBeGreaterThanOrEqual(220);
   expect(avatarBox.height).toBeGreaterThanOrEqual(220);
-  expect(avatarBox.width).toBeLessThanOrEqual(panelBox.width);
+  expect(avatarBox.width).toBeGreaterThanOrEqual(panelContentWidth - 2);
 });
 
 test('mock social contacts include LinkedIn Telegram and Instagram', async ({ page }) => {

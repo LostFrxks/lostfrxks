@@ -85,6 +85,43 @@ test('intro exits through a reveal transition instead of a hard cut', async ({ p
   await expect(intro).toBeHidden();
 });
 
+test('intro reveal keeps Artur name transition free of zoom scaling', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByRole('button', { name: /enter matrix intro/i }).click();
+  await expect(page.locator('[data-intro-name]')).toHaveText('Artur Usenov');
+  await expect(page.locator('#intro-screen')).toHaveClass(/intro-exiting/);
+  await page.waitForTimeout(180);
+
+  const scales = await page.evaluate(() => {
+    function readScale(selector) {
+      const element = document.querySelector(selector);
+      const transform = getComputedStyle(element).transform;
+      if (transform === 'none') {
+        return { x: 1, y: 1 };
+      }
+
+      const values = transform.match(/matrix.*\((.+)\)/)[1].split(',').map(Number);
+      if (values.length === 6) {
+        return { x: values[0], y: values[3] };
+      }
+
+      return { x: values[0], y: values[5] };
+    }
+
+    return {
+      intro: readScale('#intro-screen'),
+      name: readScale('[data-intro-name]'),
+      main: readScale('main'),
+    };
+  });
+
+  for (const scale of [scales.intro, scales.name, scales.main]) {
+    expect(scale.x).toBeCloseTo(1, 2);
+    expect(scale.y).toBeCloseTo(1, 2);
+  }
+});
+
 test('main sections materialize with matrix reveal as they enter view', async ({ page }) => {
   await page.goto('/');
   await enterPortfolio(page);

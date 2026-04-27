@@ -95,7 +95,6 @@ button:focus-visible {
   transition:
     opacity 1100ms ease,
     visibility 1100ms ease,
-    transform 1100ms cubic-bezier(0.22, 1, 0.36, 1),
     filter 1100ms ease;
 }
 
@@ -138,13 +137,11 @@ button:focus-visible {
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
-  transform: scale(1.08);
   filter: blur(10px);
 }
 
 .intro-screen.intro-exiting {
   opacity: 0;
-  transform: scale(1.06);
   filter: blur(8px);
 }
 
@@ -159,10 +156,8 @@ button:focus-visible {
 
 .intro-screen.intro-exiting .intro-name {
   opacity: 0;
-  transform: scale(0.92);
   transition:
     opacity 800ms ease,
-    transform 800ms cubic-bezier(0.22, 1, 0.36, 1),
     letter-spacing 800ms ease,
     filter 800ms ease,
     text-shadow 800ms ease;
@@ -218,7 +213,7 @@ button:focus-visible {
 @keyframes siteReveal {
   0% {
     opacity: 0;
-    transform: translateY(28px) scale(0.985);
+    transform: translateY(28px);
     filter: blur(12px);
   }
 
@@ -228,7 +223,7 @@ button:focus-visible {
 
   100% {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
     filter: blur(0);
   }
 }
@@ -236,7 +231,7 @@ button:focus-visible {
 .matrix-reveal {
   --reveal-delay: 0ms;
   opacity: 0;
-  transform: translate3d(0, 26px, 0) scale(0.985);
+  transform: translate3d(0, 26px, 0);
   filter: blur(10px) saturate(1.25);
   clip-path: inset(36% 0 34% 0);
   will-change: opacity, transform, filter, clip-path;
@@ -295,20 +290,20 @@ button:focus-visible {
 }
 
 [data-matrix-reveal="item"] {
-  transform: translate3d(0, 18px, 0) scale(0.98);
+  transform: translate3d(0, 18px, 0);
 }
 
 @keyframes matrixMaterialize {
   0% {
     opacity: 0;
-    transform: translate3d(0, 28px, 0) scale(0.982);
+    transform: translate3d(0, 28px, 0);
     filter: blur(12px) saturate(1.35);
     clip-path: inset(44% 0 48% 0);
   }
 
   28% {
     opacity: 0.7;
-    transform: translate3d(0, 10px, 0) scale(0.996);
+    transform: translate3d(0, 10px, 0);
     filter: blur(5px) saturate(1.28);
     clip-path: inset(20% 0 22% 0);
   }
@@ -320,7 +315,7 @@ button:focus-visible {
 
   100% {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: translate3d(0, 0, 0);
     filter: blur(0) saturate(1);
     clip-path: inset(0 0 0 0);
   }

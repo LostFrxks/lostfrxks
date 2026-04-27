@@ -5,7 +5,6 @@
   const introRain = document.getElementById('intro-rain');
   const introRainContext = introRain ? introRain.getContext('2d') : null;
   const introName = document.querySelector('[data-intro-name]');
-  const toggle = document.getElementById('matrix-toggle');
   const commands = document.querySelectorAll('[data-target]');
   const bootLines = document.querySelectorAll('[data-boot-text]');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -22,7 +21,9 @@
   ];
 
   const glyphs = '01{}[]<>/\\$#@lostfrxksARTURPYTSFASTAPI';
-  const introRainAlphabet = introRain ? introRain.getAttribute('data-rain-alphabet') : '漢アイ가А01{}[]';
+  const matrixFontSize = 16;
+  const matrixColumnWidth = 18;
+  const introRainAlphabet = introRain ? introRain.getAttribute('data-rain-alphabet') : glyphs;
   const introNameAlphabet = '01{}[]<>/\\$#@ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const introRainNormalSpeed = 1;
   const introRainDecryptSpeed = 0.24;
@@ -36,7 +37,6 @@
   let introNameTimer = 0;
   let introDecryptTimer = 0;
   let introDismissed = false;
-  let matrixEnabled = true;
   let revealStarted = false;
   let revealObserver = null;
 
@@ -48,7 +48,7 @@
     canvas.style.height = `${window.innerHeight}px`;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
 
-    const columnCount = Math.ceil(window.innerWidth / 18);
+    const columnCount = Math.ceil(window.innerWidth / matrixColumnWidth);
     columns = Array.from({ length: columnCount }, () => Math.floor(Math.random() * window.innerHeight));
     drawMatrixFrame(true);
   }
@@ -58,15 +58,15 @@
       context.fillStyle = '#020403';
       context.fillRect(0, 0, window.innerWidth, window.innerHeight);
     } else {
-      context.fillStyle = matrixEnabled ? 'rgba(2, 4, 3, 0.12)' : 'rgba(2, 4, 3, 0.28)';
+      context.fillStyle = 'rgba(2, 4, 3, 0.12)';
       context.fillRect(0, 0, window.innerWidth, window.innerHeight);
     }
 
-    context.font = '16px JetBrains Mono, monospace';
+    context.font = `${matrixFontSize}px JetBrains Mono, monospace`;
     context.textBaseline = 'top';
 
     for (let index = 0; index < columns.length; index += 1) {
-      const x = index * 18;
+      const x = index * matrixColumnWidth;
       const y = columns[index];
       const glyph = glyphs[Math.floor(Math.random() * glyphs.length)];
 
@@ -76,7 +76,7 @@
       if (y > window.innerHeight + Math.random() * 800) {
         columns[index] = 0;
       } else {
-        columns[index] = y + (matrixEnabled ? 18 : 8);
+        columns[index] = y + matrixColumnWidth;
       }
     }
   }
@@ -84,13 +84,6 @@
   function animateMatrix() {
     drawMatrixFrame(false);
     animationId = window.requestAnimationFrame(animateMatrix);
-  }
-
-  function setMatrixState(enabled) {
-    matrixEnabled = enabled;
-    document.body.classList.toggle('matrix-muted', !enabled);
-    toggle.setAttribute('aria-pressed', String(enabled));
-    toggle.innerHTML = enabled ? '<span>$</span> matrix:on' : '<span>$</span> matrix:low';
   }
 
   function setupMatrixReveals() {
@@ -214,9 +207,11 @@
     introRain.style.height = `${window.innerHeight}px`;
     introRainContext.setTransform(ratio, 0, 0, ratio, 0, 0);
 
-    const fontSize = window.innerWidth < 640 ? 18 : 22;
+    const fontSize = matrixFontSize;
+    const columnWidth = matrixColumnWidth;
     introRain.dataset.fontSize = String(fontSize);
-    const columnCount = Math.ceil(window.innerWidth / fontSize);
+    introRain.dataset.columnWidth = String(columnWidth);
+    const columnCount = Math.ceil(window.innerWidth / columnWidth);
     introRainColumns = Array.from(
       { length: columnCount },
       () => Math.floor(Math.random() * window.innerHeight)
@@ -230,7 +225,8 @@
     }
 
     const fontSize = Number(introRain.dataset.fontSize || 22);
-    const trailAlpha = introRainTargetSpeed < introRainNormalSpeed ? 0.08 : 0.14;
+    const columnWidth = Number(introRain.dataset.columnWidth || matrixColumnWidth);
+    const trailAlpha = introRainTargetSpeed < introRainNormalSpeed ? 0.08 : 0.12;
     if (clear) {
       introRainSpeed = introRainTargetSpeed;
     } else {
@@ -238,23 +234,23 @@
     }
 
     introRain.dataset.rainSpeedCurrent = introRainSpeed.toFixed(2);
-    introRainContext.fillStyle = clear ? '#010604' : `rgba(1, 6, 4, ${trailAlpha})`;
+    introRainContext.fillStyle = clear ? '#020403' : `rgba(2, 4, 3, ${trailAlpha})`;
     introRainContext.fillRect(0, 0, window.innerWidth, window.innerHeight);
     introRainContext.font = `${fontSize}px JetBrains Mono, Consolas, monospace`;
     introRainContext.textBaseline = 'top';
 
     for (let index = 0; index < introRainColumns.length; index += 1) {
-      const x = index * fontSize;
+      const x = index * columnWidth;
       const y = introRainColumns[index];
       const char = randomRainChar();
 
-      introRainContext.fillStyle = index % 11 === 0 ? '#dfffee' : '#5cffb1';
+      introRainContext.fillStyle = index % 9 === 0 ? '#65e7ff' : '#5cffb1';
       introRainContext.fillText(char, x, y);
 
       if (y > window.innerHeight + Math.random() * 700) {
-        introRainColumns[index] = -fontSize * Math.floor(Math.random() * 12);
+        introRainColumns[index] = -columnWidth * Math.floor(Math.random() * 12);
       } else {
-        introRainColumns[index] = y + fontSize * introRainSpeed;
+        introRainColumns[index] = y + columnWidth * introRainSpeed;
       }
     }
   }
@@ -376,10 +372,6 @@
     });
   });
 
-  toggle.addEventListener('click', () => {
-    setMatrixState(!matrixEnabled);
-  });
-
   setupMatrixReveals();
 
   if (introScreen) {
@@ -396,7 +388,6 @@
     resizeIntroRain();
   });
   resizeCanvas();
-  setMatrixState(true);
 
   if (reducedMotion) {
     drawMatrixFrame(true);

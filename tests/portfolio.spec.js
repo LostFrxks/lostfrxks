@@ -48,7 +48,7 @@ test('matrix intro scrambles central text then decrypts into Artur identity', as
   await expect(page.locator('#intro-screen')).toBeHidden();
 });
 
-test('intro is an opaque multilingual matrix rain screen without a boxed content panel', async ({ page }) => {
+test('intro rain matches the main matrix background style without a boxed content panel', async ({ page }) => {
   await page.goto('/');
 
   await expect(page.locator('.site-header')).toBeHidden();
@@ -59,10 +59,9 @@ test('intro is an opaque multilingual matrix rain screen without a boxed content
   const rainCanvas = page.locator('#intro-rain');
   await expect(rainCanvas).toBeVisible();
   const alphabet = await rainCanvas.getAttribute('data-rain-alphabet');
-  expect(alphabet).toMatch(/[漢界龍]/);
-  expect(alphabet).toMatch(/[アイウカ]/);
-  expect(alphabet).toMatch(/[가나다]/);
-  expect(alphabet).toMatch(/[АБВЖ]/);
+  expect(alphabet).toBe('01{}[]<>/\\$#@lostfrxksARTURPYTSFASTAPI');
+  await expect(rainCanvas).toHaveAttribute('data-font-size', '16');
+  await expect(rainCanvas).toHaveAttribute('data-column-width', '18');
 
   const hasRainPixels = await rainCanvas.evaluate((canvas) => {
     const context = canvas.getContext('2d');
@@ -219,17 +218,14 @@ test('featured projects and achievements are visible', async ({ page }) => {
   await expect(page.getByText(/LeetCode 140\+/i)).toBeVisible();
 });
 
-test('command controls navigate to sections and toggle matrix intensity', async ({ page }) => {
+test('command controls navigate to sections without a matrix toggle button', async ({ page }) => {
   await page.goto('/');
   await enterPortfolio(page);
 
   await page.getByRole('button', { name: /projects command/i }).click();
   await expect(page.locator('#projects')).toBeInViewport();
-
-  const matrixToggle = page.getByRole('button', { name: /matrix intensity/i });
-  await expect(matrixToggle).toHaveAttribute('aria-pressed', 'true');
-  await matrixToggle.click();
-  await expect(matrixToggle).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('button', { name: /matrix intensity/i })).toHaveCount(0);
+  await expect(page.getByText(/matrix:on/i)).toHaveCount(0);
 });
 
 test('matrix canvas draws visible pixels', async ({ page }) => {

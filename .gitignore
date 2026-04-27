@@ -1,0 +1,10 @@
+node_modules/
+test-results/
+playwright-report/
+screenshots/
+docs/superpowers/
+
+.env
+.env.*
+*.log
+.DS_Store

@@ -228,9 +228,21 @@ test('command controls navigate to sections without a matrix toggle button', asy
   await expect(page.getByText(/matrix:on/i)).toHaveCount(0);
 });
 
-test('matrix canvas draws visible pixels', async ({ page }) => {
+test('main matrix background matches the intro rain style and draws visible pixels', async ({ page }) => {
   await page.goto('/');
-  const hasPixels = await page.locator('#matrix-canvas').evaluate((canvas) => {
+
+  const matrixCanvas = page.locator('#matrix-canvas');
+  const introCanvas = page.locator('#intro-rain');
+
+  await expect(matrixCanvas).toHaveAttribute('data-matrix-style', 'intro-rain');
+  await expect(matrixCanvas).toHaveAttribute('data-rain-alphabet', await introCanvas.getAttribute('data-rain-alphabet'));
+  await expect(matrixCanvas).toHaveAttribute('data-font-size', await introCanvas.getAttribute('data-font-size'));
+  await expect(matrixCanvas).toHaveAttribute('data-column-width', await introCanvas.getAttribute('data-column-width'));
+
+  const matrixOpacity = await matrixCanvas.evaluate((canvas) => getComputedStyle(canvas).opacity);
+  expect(Number(matrixOpacity)).toBeGreaterThanOrEqual(0.72);
+
+  const hasPixels = await matrixCanvas.evaluate((canvas) => {
     const context = canvas.getContext('2d');
     const sample = context.getImageData(0, 0, canvas.width, canvas.height).data;
     for (let index = 3; index < sample.length; index += 4) {

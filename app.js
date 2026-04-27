@@ -47,6 +47,10 @@
     canvas.style.width = `${window.innerWidth}px`;
     canvas.style.height = `${window.innerHeight}px`;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    canvas.dataset.matrixStyle = 'intro-rain';
+    canvas.dataset.rainAlphabet = introRainAlphabet;
+    canvas.dataset.fontSize = String(matrixFontSize);
+    canvas.dataset.columnWidth = String(matrixColumnWidth);
 
     const columnCount = Math.ceil(window.innerWidth / matrixColumnWidth);
     columns = Array.from({ length: columnCount }, () => Math.floor(Math.random() * window.innerHeight));
@@ -62,13 +66,16 @@
       context.fillRect(0, 0, window.innerWidth, window.innerHeight);
     }
 
-    context.font = `${matrixFontSize}px JetBrains Mono, monospace`;
+    const fontSize = Number(canvas.dataset.fontSize || matrixFontSize);
+    const columnWidth = Number(canvas.dataset.columnWidth || matrixColumnWidth);
+    const alphabet = canvas.dataset.rainAlphabet || glyphs;
+    context.font = `${fontSize}px JetBrains Mono, Consolas, monospace`;
     context.textBaseline = 'top';
 
     for (let index = 0; index < columns.length; index += 1) {
-      const x = index * matrixColumnWidth;
+      const x = index * columnWidth;
       const y = columns[index];
-      const glyph = glyphs[Math.floor(Math.random() * glyphs.length)];
+      const glyph = alphabet[Math.floor(Math.random() * alphabet.length)];
 
       context.fillStyle = index % 9 === 0 ? '#65e7ff' : '#5cffb1';
       context.fillText(glyph, x, y);
@@ -76,7 +83,7 @@
       if (y > window.innerHeight + Math.random() * 800) {
         columns[index] = 0;
       } else {
-        columns[index] = y + matrixColumnWidth;
+        columns[index] = y + columnWidth;
       }
     }
   }

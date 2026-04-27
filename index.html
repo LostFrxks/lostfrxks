@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
       rel="stylesheet"
     >
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=looping-custom-project-scrollbar-20260428">
   </head>
   <body class="intro-active">
     <canvas id="matrix-canvas" aria-hidden="true"></canvas>
@@ -31,7 +31,6 @@
 
     <header class="site-header" aria-label="Primary">
       <a class="brand" href="#top" aria-label="lostfrxks home">
-        <span class="brand-mark">LF</span>
         <span>lostfrxks</span>
       </a>
       <nav class="nav-links" aria-label="Portfolio sections">
@@ -59,7 +58,7 @@
               <p class="eyebrow">Fullstack Developer // backend-leaning systems builder</p>
               <h1 id="hero-title">Artur Usenov</h1>
               <p class="handle">lostfrxks</p>
-              <p class="hero-stack">Python / Django / FastAPI / React / TypeScript</p>
+              <p class="hero-stack">Python / Django / React / TypeScript / C++</p>
               <div class="hero-actions" aria-label="Primary actions">
                 <a class="command-link" href="https://github.com/LostFrxks" target="_blank" rel="noreferrer">
                   <span aria-hidden="true">$</span> GitHub
@@ -67,14 +66,14 @@
                 <a class="command-link" href="assets/artur-usenov-resume.pdf" target="_blank" rel="noreferrer">
                   <span aria-hidden="true">$</span> Resume
                 </a>
-                <a class="command-link" href="mailto:erikusen2017@gmail.com">
+                <a class="command-link" href="mailto:lostfrxks@gmail.com">
                   <span aria-hidden="true">$</span> Contact
                 </a>
               </div>
               <p class="hero-copy">
-                I build practical fullstack systems, automation-heavy backends, and clean interfaces.
-                My strongest lane is turning raw ideas into working products with Python, TypeScript,
-                APIs, data flow, and a little terminal drama.
+                I build practical fullstack systems, backend-heavy products, and clean interfaces.
+                My strongest lane is turning raw ideas into working software with Python, Django,
+                React, algorithms, data flow, and a little terminal drama.
               </p>
             </div>
           </div>
@@ -94,15 +93,15 @@
               </div>
               <div>
                 <dt>Education</dt>
-                <dd>AUCA TSI, 2022-2026</dd>
+                <dd>AUCA TSI, 2022-2026, GPA 3.85</dd>
               </div>
               <div>
                 <dt>LeetCode</dt>
-                <dd>140+ solved</dd>
+                <dd>260+ solved</dd>
               </div>
               <div>
-                <dt>Research</dt>
-                <dd>public GitHub + local resume</dd>
+                <dt>Contest</dt>
+                <dd>ICPC NERC 2025 finalist</dd>
               </div>
             </dl>
           </aside>
@@ -134,12 +133,13 @@
             <p>
               I am Artur Usenov, a Software Engineering and Social Transformation student at AUCA,
               focused on backend development, algorithms, and fullstack products. I work confidently
-              with Python and Django, build frontend interfaces, and keep pushing through pet projects
-              that turn coursework and hackathon pressure into real software.
+              with Python and Django, build frontend interfaces with React and TypeScript, and keep
+              pushing through pet projects that turn coursework and hackathon pressure into real software.
             </p>
             <p>
               The strongest public signals are project-based: tutor systems, real estate CRUD apps,
-              semantic search, Docker-ready marketplaces, voice backend experiments, and a Makeathon win.
+              semantic search, Docker-ready marketplaces, voice backend experiments, ICPC practice,
+              and a Makeathon win.
             </p>
           </div>
         </div>
@@ -152,106 +152,126 @@
             <h2 id="projects-title">Featured Systems</h2>
           </div>
 
-          <div class="project-grid">
-            <article class="project-card">
-              <div class="card-meta">
-                <span>status: shipped</span>
-                <span>role: fullstack</span>
-              </div>
-              <h3>GUROO</h3>
-              <p>
-                Tutor and student registration system for AUCA with attendance, schedule, auth,
-                Excel export, and Telegram notifications.
-              </p>
-              <ul class="chip-list" aria-label="GUROO stack">
-                <li>FastAPI</li>
-                <li>TypeScript</li>
-                <li>React</li>
-                <li>SQLAlchemy</li>
-                <li>Telegram Bot</li>
-              </ul>
-              <a href="https://github.com/LostFrxks/GUROO" target="_blank" rel="noreferrer">open repo</a>
-            </article>
+          <div class="project-carousel" data-project-carousel aria-label="Featured project scroller">
+            <div class="project-track-wrapper">
+              <ul class="project-track" data-project-track>
+                <li class="project-track__item">
+                  <article class="project-card">
+                    <div class="card-meta">
+                      <span>status: shipped</span>
+                      <span>role: fullstack</span>
+                    </div>
+                    <h3>GUROO</h3>
+                    <p>
+                      Tutor and student registration system for AUCA with attendance, schedule, auth,
+                      Excel export, and a Telegram notification bot, built with Django, HTML, CSS,
+                      JavaScript, SQLite.
+                    </p>
+                    <ul class="chip-list" aria-label="GUROO stack">
+                      <li>Django</li>
+                      <li>JavaScript</li>
+                      <li>SQLite</li>
+                      <li>Excel Export</li>
+                      <li>Telegram Bot</li>
+                    </ul>
+                    <a href="https://github.com/LostFrxks/GUROO" target="_blank" rel="noreferrer">open repo</a>
+                  </article>
+                </li>
 
-            <article class="project-card">
-              <div class="card-meta">
-                <span>status: active</span>
-                <span>scope: platform</span>
-              </div>
-              <h3>USC</h3>
-              <p>
-                Docker-ready marketplace MVP with web frontend, mobile surface, backend API,
-                analytics, AI screens, Redis/PostgreSQL, tests, and deployment docs.
-              </p>
-              <ul class="chip-list" aria-label="USC stack">
-                <li>FastAPI</li>
-                <li>React</li>
-                <li>Expo</li>
-                <li>Docker</li>
-                <li>Playwright</li>
-              </ul>
-              <a href="https://github.com/LostFrxks/USC" target="_blank" rel="noreferrer">open repo</a>
-            </article>
+                <li class="project-track__item">
+                  <article class="project-card">
+                    <div class="card-meta">
+                      <span>status: active</span>
+                      <span>scope: platform</span>
+                    </div>
+                    <h3>USC</h3>
+                    <p>
+                      Docker-ready marketplace MVP with web frontend, mobile surface, backend API,
+                      analytics, AI screens, Redis/PostgreSQL, tests, and deployment docs.
+                    </p>
+                    <ul class="chip-list" aria-label="USC stack">
+                      <li>FastAPI</li>
+                      <li>React</li>
+                      <li>Expo</li>
+                      <li>Docker</li>
+                      <li>Playwright</li>
+                    </ul>
+                    <a href="https://github.com/LostFrxks/USC" target="_blank" rel="noreferrer">open repo</a>
+                  </article>
+                </li>
 
-            <article class="project-card">
-              <div class="card-meta">
-                <span>status: built</span>
-                <span>domain: real estate</span>
-              </div>
-              <h3>Homy</h3>
-              <p>
-                Fullstack property app with Django REST Framework, SimpleJWT auth,
-                React TypeScript frontend, and CRUD workflows for real estate objects.
-              </p>
-              <ul class="chip-list" aria-label="Homy stack">
-                <li>Django</li>
-                <li>DRF</li>
-                <li>SimpleJWT</li>
-                <li>React</li>
-                <li>PostgreSQL</li>
-              </ul>
-              <a href="https://github.com/LostFrxks/homy" target="_blank" rel="noreferrer">open repo</a>
-            </article>
+                <li class="project-track__item">
+                  <article class="project-card">
+                    <div class="card-meta">
+                      <span>status: built</span>
+                      <span>domain: real estate</span>
+                    </div>
+                    <h3>Homy</h3>
+                    <p>
+                      Fullstack real estate CRM with objects, deals, showings, favorites,
+                      audit trails, JWT auth, and an agent profile with avatar and metrics.
+                    </p>
+                    <ul class="chip-list" aria-label="Homy stack">
+                      <li>Django</li>
+                      <li>DRF</li>
+                      <li>SimpleJWT</li>
+                      <li>React</li>
+                      <li>Vite</li>
+                      <li>Tailwind</li>
+                      <li>PostgreSQL</li>
+                    </ul>
+                    <a href="https://github.com/LostFrxks/homy" target="_blank" rel="noreferrer">open repo</a>
+                  </article>
+                </li>
 
-            <article class="project-card">
-              <div class="card-meta">
-                <span>status: prototype</span>
-                <span>domain: semantic</span>
-              </div>
-              <h3>embedding-search</h3>
-              <p>
-                Python app for Lalafo-style semantic search with scraping, embeddings,
-                cosine similarity, local filters, and FastAPI endpoints.
-              </p>
-              <ul class="chip-list" aria-label="embedding-search stack">
-                <li>Python</li>
-                <li>FastAPI</li>
-                <li>SQLAlchemy</li>
-                <li>Embeddings</li>
-                <li>Search</li>
-              </ul>
-              <a href="https://github.com/LostFrxks/embedding-search" target="_blank" rel="noreferrer">open repo</a>
-            </article>
+                <li class="project-track__item">
+                  <article class="project-card">
+                    <div class="card-meta">
+                      <span>status: prototype</span>
+                      <span>domain: semantic</span>
+                    </div>
+                    <h3>embedding-search</h3>
+                    <p>
+                      Python app for Lalafo-style semantic search with scraping, embeddings,
+                      cosine similarity, local filters, and FastAPI endpoints.
+                    </p>
+                    <ul class="chip-list" aria-label="embedding-search stack">
+                      <li>Python</li>
+                      <li>FastAPI</li>
+                      <li>SQLAlchemy</li>
+                      <li>Embeddings</li>
+                      <li>Search</li>
+                    </ul>
+                    <a href="https://github.com/LostFrxks/embedding-search" target="_blank" rel="noreferrer">open repo</a>
+                  </article>
+                </li>
 
-            <article class="project-card">
-              <div class="card-meta">
-                <span>status: experiment</span>
-                <span>domain: voice</span>
-              </div>
-              <h3>mbank-voice-stand</h3>
-              <p>
-                Voice backend stand with Python service code, gRPC dependencies,
-                Kotlin SDK surfaces, C++ pieces, and integration-oriented structure.
-              </p>
-              <ul class="chip-list" aria-label="mbank-voice-stand stack">
-                <li>Python</li>
-                <li>Kotlin</li>
-                <li>C++</li>
-                <li>gRPC</li>
-                <li>FastAPI</li>
+                <li class="project-track__item">
+                  <article class="project-card">
+                    <div class="card-meta">
+                      <span>status: experiment</span>
+                      <span>domain: voice</span>
+                    </div>
+                    <h3>mbank-voice-stand</h3>
+                    <p>
+                      Voice backend stand with Python service code, gRPC dependencies,
+                      Kotlin SDK surfaces, C++ pieces, and integration-oriented structure.
+                    </p>
+                    <ul class="chip-list" aria-label="mbank-voice-stand stack">
+                      <li>Python</li>
+                      <li>Kotlin</li>
+                      <li>C++</li>
+                      <li>gRPC</li>
+                      <li>FastAPI</li>
+                    </ul>
+                    <a href="https://github.com/LostFrxks/mbank-voice-stand" target="_blank" rel="noreferrer">open repo</a>
+                  </article>
+                </li>
               </ul>
-              <a href="https://github.com/LostFrxks/mbank-voice-stand" target="_blank" rel="noreferrer">open repo</a>
-            </article>
+            </div>
+            <div class="project-scrollbar" data-project-scrollbar aria-hidden="true">
+              <div class="project-scrollbar-thumb"></div>
+            </div>
           </div>
         </div>
       </section>
@@ -282,11 +302,11 @@
             </article>
             <article class="stack-card">
               <h3>Algorithms</h3>
-              <p>Algorithms and data structures practice, C++, C#, and coding challenge discipline.</p>
+              <p>260+ LeetCode solves, ICPC NERC finalist practice, C++, C#, and coding challenge discipline.</p>
             </article>
             <article class="stack-card">
               <h3>Product Work</h3>
-              <p>MVP delivery, hackathon execution, tutor workflows, marketplaces, admin tools.</p>
+              <p>MVP delivery, hackathon execution, tutor workflows, marketplaces, admin tools, leadership.</p>
             </article>
           </div>
         </div>
@@ -301,15 +321,19 @@
           <div class="achievement-grid">
             <article class="achievement-card">
               <strong>Makeathon Winner</strong>
-              <p>Won among 16 teams by building an MVP in 72 hours; owned C++ movement/control logic.</p>
+              <p>Team FSDS hackathon win among 16 teams: built a remotely controlled MVP in 72 hours and owned C++ movement/control logic.</p>
             </article>
             <article class="achievement-card">
-              <strong>LeetCode 140+</strong>
+              <strong>LeetCode 260+</strong>
               <p>Consistent algorithms and data structures practice.</p>
             </article>
             <article class="achievement-card">
+              <strong>ICPC NERC 2025 finalist</strong>
+              <p>ICPC Kyrgyzstan: 9th place, III degree.</p>
+            </article>
+            <article class="achievement-card">
               <strong>AUCA TSI</strong>
-              <p>Software Engineering and Social Transformation, 2022-2026, GPA 3.79.</p>
+              <p>Software Engineering and Social Transformation, 2022-2026, GPA 3.85.</p>
             </article>
           </div>
         </div>
@@ -349,19 +373,19 @@
             </p>
           </div>
           <div class="contact-actions" aria-label="Contact links">
-            <a href="mailto:erikusen2017@gmail.com">erikusen2017@gmail.com</a>
+            <a href="mailto:lostfrxks@gmail.com">lostfrxks@gmail.com</a>
             <a href="https://github.com/LostFrxks" target="_blank" rel="noreferrer" aria-label="LostFrxks profile URL">github.com/LostFrxks</a>
             <a href="assets/artur-usenov-resume.pdf" target="_blank" rel="noreferrer">resume.pdf</a>
-            <div class="mock-socials" aria-label="Mock social contacts">
-              <a href="#contact" data-mock="true" aria-label="LinkedIn mock profile">LinkedIn</a>
-              <a href="#contact" data-mock="true" aria-label="Telegram mock profile">Telegram</a>
-              <a href="#contact" data-mock="true" aria-label="Instagram mock profile">Instagram</a>
+            <div class="mock-socials" aria-label="Social contacts">
+              <a href="https://www.linkedin.com/in/artur-usenov-424108395/" target="_blank" rel="noreferrer" aria-label="Artur Usenov LinkedIn profile">LinkedIn</a>
+              <a href="https://t.me/lostfrxks" target="_blank" rel="noreferrer" aria-label="Telegram">Telegram</a>
+              <a href="https://www.instagram.com/lostfrxks/" target="_blank" rel="noreferrer" aria-label="lostfrxks Instagram profile">Instagram</a>
             </div>
           </div>
         </div>
       </section>
     </main>
 
-    <script src="app.js?v=matrix-tail-exit-20260427"></script>
+    <script src="app.js?v=looping-custom-project-scrollbar-20260428"></script>
   </body>
 </html>

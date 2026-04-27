@@ -38,6 +38,7 @@
   const introRainNormalTrailAlpha = 0.12;
   const introRainDecryptTrailAlpha = 0.18;
   const revealTargets = [];
+  const cardTiltResetTimers = new WeakMap();
   let columns = [];
   let introRainColumns = [];
   let introRainSpeed = introRainNormalSpeed;
@@ -50,7 +51,18 @@
   let introDismissed = false;
   let revealStarted = false;
   let revealObserver = null;
+  let revealScrollHandler = null;
+  let revealScrollTicking = false;
   let matrixFrame = 0;
+
+  function forceTopScroll() {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }
+
+  if ('scrollRestoration' in window.history) {
+    window.history.scrollRestoration = 'manual';
+  }
+  forceTopScroll();
 
   function randomFromAlphabet(alphabet) {
     return alphabet[Math.floor(Math.random() * alphabet.length)];
@@ -179,6 +191,15 @@
     const delay = reducedMotion ? 0 : Math.min(order * 80, 520);
     element.style.setProperty('--reveal-delay', `${delay}ms`);
     element.classList.add('matrix-revealed');
+    window.setTimeout(() => settleMatrixReveal(element), reducedMotion ? 0 : delay + 900);
+  }
+
+  function settleMatrixReveal(element) {
+    if (!element || !element.classList.contains('matrix-revealed')) {
+      return;
+    }
+
+    element.classList.add('matrix-reveal-settled');
   }
 
   function revealChildren(container) {
@@ -191,6 +212,334 @@
   function revealBlock(element, order) {
     revealElement(element, order);
     revealChildren(element);
+  }
+
+  function revealVisibleSections() {
+    if (!revealStarted || reducedMotion) {
+      return;
+    }
+
+    const isMobileViewport = window.innerWidth <= 680;
+    const triggerLine = window.innerHeight * (isMobileViewport ? 0.92 : 0.76);
+    const pageBottom =
+      window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 8;
+
+    document.querySelectorAll('[data-matrix-reveal="section"]:not(.matrix-revealed)').forEach((section) => {
+      const rect = section.getBoundingClientRect();
+      const isEnteringViewport = rect.top <= triggerLine && rect.bottom >= 0;
+
+      if (!isEnteringViewport && !pageBottom) {
+        return;
+      }
+
+      revealBlock(section, 0);
+      if (revealObserver) {
+        revealObserver.unobserve(section);
+      }
+    });
+  }
+
+  function queueRevealVisibleSections() {
+    if (revealScrollTicking) {
+      return;
+    }
+
+    revealScrollTicking = true;
+    window.requestAnimationFrame(() => {
+      revealScrollTicking = false;
+      revealVisibleSections();
+    });
+  }
+
+  function setProjectCardNeutralTilt(card) {
+    card.style.setProperty('--card-cursor-x', '50%');
+    card.style.setProperty('--card-cursor-y', '50%');
+    card.style.setProperty('--card-tilt-x', '0deg');
+    card.style.setProperty('--card-tilt-y', '0deg');
+    card.style.setProperty('--card-shadow-x', '0px');
+    card.style.setProperty('--card-shadow-y', '0px');
+    card.style.setProperty('--card-lift-y', '0px');
+    card.style.setProperty('--card-lift-z', '0px');
+  }
+
+  function resetProjectCardTilt(card, immediate) {
+    window.clearTimeout(cardTiltResetTimers.get(card));
+    setProjectCardNeutralTilt(card);
+
+    if (immediate || !card.classList.contains('card-tilt-active')) {
+      card.classList.remove('card-tilt-active', 'card-tilt-returning');
+      card.dataset.cardTilt = 'idle';
+      return;
+    }
+
+    card.classList.add('card-tilt-returning');
+    card.dataset.cardTilt = 'returning';
+    cardTiltResetTimers.set(
+      card,
+      window.setTimeout(() => {
+        card.classList.remove('card-tilt-active', 'card-tilt-returning');
+        card.dataset.cardTilt = 'idle';
+      }, 220)
+    );
+  }
+
+  function updateProjectCardTilt(card, event) {
+    window.clearTimeout(cardTiltResetTimers.get(card));
+    settleMatrixReveal(card);
+    const rect = card.getBoundingClientRect();
+    const cursorX = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+    const cursorY = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+    const normalX = cursorX - 0.5;
+    const normalY = cursorY - 0.5;
+
+    card.classList.add('card-tilt-active');
+    card.classList.remove('card-tilt-returning');
+    card.dataset.cardTilt = 'active';
+    card.style.setProperty('--card-cursor-x', `${(cursorX * 100).toFixed(2)}%`);
+    card.style.setProperty('--card-cursor-y', `${(cursorY * 100).toFixed(2)}%`);
+    card.style.setProperty('--card-tilt-x', `${(-normalY * 10).toFixed(2)}deg`);
+    card.style.setProperty('--card-tilt-y', `${(normalX * 10).toFixed(2)}deg`);
+    card.style.setProperty('--card-shadow-x', `${(-normalX * 22).toFixed(2)}px`);
+    card.style.setProperty('--card-shadow-y', `${(-normalY * 22).toFixed(2)}px`);
+    card.style.setProperty('--card-lift-y', '-4px');
+    card.style.setProperty('--card-lift-z', '0px');
+  }
+
+  function setupProjectCardTilt() {
+    document.querySelectorAll('.project-card, .stack-card, .achievement-card').forEach((card) => {
+      resetProjectCardTilt(card, true);
+
+      if (reducedMotion) {
+        return;
+      }
+
+      card.addEventListener('pointerenter', (event) => {
+        if (event.pointerType !== 'touch') {
+          updateProjectCardTilt(card, event);
+        }
+      });
+      card.addEventListener('pointermove', (event) => {
+        if (event.pointerType !== 'touch') {
+          updateProjectCardTilt(card, event);
+        }
+      });
+      card.addEventListener('pointerleave', () => resetProjectCardTilt(card));
+      card.addEventListener('pointercancel', () => resetProjectCardTilt(card));
+      card.addEventListener('mouseenter', (event) => updateProjectCardTilt(card, event));
+      card.addEventListener('mousemove', (event) => updateProjectCardTilt(card, event));
+      card.addEventListener('mouseleave', () => resetProjectCardTilt(card));
+    });
+  }
+
+  function disableCloneFocus(clone) {
+    clone.dataset.loopClone = 'true';
+    clone.setAttribute('aria-hidden', 'true');
+    clone.querySelectorAll('a, button, input, select, textarea, [tabindex]').forEach((element) => {
+      element.setAttribute('tabindex', '-1');
+    });
+  }
+
+  function centeredScrollLeft(track, item) {
+    return item.offsetLeft - (track.clientWidth - item.offsetWidth) / 2;
+  }
+
+  function measureProjectLoop(track) {
+    const originalCount = Number(track.dataset.originalCount || 0);
+    const items = Array.from(track.children);
+    const firstOriginal = items[originalCount];
+    const firstAfterClone = items[originalCount * 2];
+
+    if (!firstOriginal || !firstAfterClone) {
+      return null;
+    }
+
+    const segmentStart = centeredScrollLeft(track, firstOriginal);
+    const segmentEnd = centeredScrollLeft(track, firstAfterClone);
+    const segmentWidth = segmentEnd - segmentStart;
+
+    if (segmentWidth <= 0) {
+      return null;
+    }
+
+    track.dataset.loopSegmentStart = segmentStart.toFixed(2);
+    track.dataset.loopSegmentWidth = segmentWidth.toFixed(2);
+    return { segmentStart, segmentWidth };
+  }
+
+  function updateProjectTrackGeometry(track) {
+    const trackRect = track.getBoundingClientRect();
+    const trackCenter = trackRect.left + track.clientWidth / 2;
+    const maxDistance = Math.max(track.clientWidth * 0.34, 320);
+
+    track.dataset.scrollGeometry = 'position-driven';
+
+    Array.from(track.children).forEach((item) => {
+      const itemRect = item.getBoundingClientRect();
+      const itemCenter = itemRect.left + itemRect.width / 2;
+      const normalized = Math.max(-1, Math.min(1, (itemCenter - trackCenter) / maxDistance));
+      const distance = Math.abs(normalized);
+      const rotateY = -normalized * 34;
+      const scale = 1 - distance * 0.14;
+      const opacity = 1 - distance * 0.36;
+
+      item.style.setProperty('--track-rotate-y', `${rotateY.toFixed(2)}deg`);
+      item.style.setProperty('--track-scale', scale.toFixed(3));
+      item.style.setProperty('--track-opacity', opacity.toFixed(3));
+    });
+  }
+
+  function updateProjectScrollIndicator(track, metrics) {
+    const loopMetrics = metrics || measureProjectLoop(track);
+    const carousel = track.closest('[data-project-carousel]');
+    if (!loopMetrics || !carousel) {
+      return;
+    }
+
+    const rawProgress = (track.scrollLeft - loopMetrics.segmentStart) / loopMetrics.segmentWidth;
+    const wrappedProgress = ((rawProgress % 1) + 1) % 1;
+    carousel.style.setProperty('--project-scroll-progress', wrappedProgress.toFixed(4));
+    carousel.dataset.scrollProgress = wrappedProgress.toFixed(4);
+  }
+
+  function jumpProjectTrack(track, nextScrollLeft, done) {
+    track.classList.add('is-loop-jumping');
+    track.scrollLeft = nextScrollLeft;
+    updateProjectTrackGeometry(track);
+    updateProjectScrollIndicator(track);
+    window.requestAnimationFrame(() => {
+      track.classList.remove('is-loop-jumping');
+      done?.();
+    });
+  }
+
+  function setupProjectLoopScroller() {
+    const track = document.querySelector('[data-project-track]');
+    if (!track || track.dataset.loopMode === 'cyclic') {
+      return;
+    }
+
+    const carousel = track.closest('[data-project-carousel]');
+    const scrollbar = carousel?.querySelector('[data-project-scrollbar]');
+    const originalItems = Array.from(track.querySelectorAll(':scope > .project-track__item'));
+    if (originalItems.length < 2) {
+      return;
+    }
+
+    const beforeFragment = document.createDocumentFragment();
+    const afterFragment = document.createDocumentFragment();
+
+    originalItems.forEach((item) => {
+      const beforeClone = item.cloneNode(true);
+      const afterClone = item.cloneNode(true);
+      disableCloneFocus(beforeClone);
+      disableCloneFocus(afterClone);
+      beforeFragment.appendChild(beforeClone);
+      afterFragment.appendChild(afterClone);
+    });
+
+    track.prepend(beforeFragment);
+    track.append(afterFragment);
+    track.dataset.loopMode = 'cyclic';
+    track.dataset.originalCount = String(originalItems.length);
+
+    let loopMetrics = null;
+    let isAdjustingLoop = false;
+    let scrollTicking = false;
+
+    const scrollToLoopStart = () => {
+      loopMetrics = measureProjectLoop(track);
+      if (!loopMetrics) {
+        return;
+      }
+
+      isAdjustingLoop = true;
+      updateProjectScrollIndicator(track, loopMetrics);
+      jumpProjectTrack(track, loopMetrics.segmentStart, () => {
+        isAdjustingLoop = false;
+      });
+    };
+
+    const keepInsideLoop = () => {
+      if (isAdjustingLoop) {
+        return;
+      }
+
+      loopMetrics = loopMetrics || measureProjectLoop(track);
+      if (!loopMetrics) {
+        return;
+      }
+
+      const { segmentStart, segmentWidth } = loopMetrics;
+      const lowerBoundary = segmentStart - segmentWidth * 0.5;
+      const upperBoundary = segmentStart + segmentWidth * 1.5;
+      const current = track.scrollLeft;
+      let next = current;
+
+      if (current < lowerBoundary) {
+        next = current + segmentWidth;
+      } else if (current > upperBoundary) {
+        next = current - segmentWidth;
+      }
+
+      if (next !== current) {
+        isAdjustingLoop = true;
+        jumpProjectTrack(track, next, () => {
+          isAdjustingLoop = false;
+        });
+      }
+    };
+
+    const updateLoop = () => {
+      scrollTicking = false;
+      keepInsideLoop();
+      updateProjectTrackGeometry(track);
+      updateProjectScrollIndicator(track, loopMetrics);
+    };
+
+    const queueLoopUpdate = () => {
+      if (scrollTicking) {
+        return;
+      }
+
+      scrollTicking = true;
+      window.requestAnimationFrame(updateLoop);
+    };
+
+    track.addEventListener('scroll', queueLoopUpdate, { passive: true });
+
+    if (scrollbar) {
+      const setScrollFromClientX = (clientX) => {
+        loopMetrics = loopMetrics || measureProjectLoop(track);
+        if (!loopMetrics) {
+          return;
+        }
+
+        const rect = scrollbar.getBoundingClientRect();
+        const thumbWidth = Number.parseFloat(getComputedStyle(carousel).getPropertyValue('--project-scroll-thumb-width')) || 0;
+        const usableWidth = Math.max(1, rect.width - thumbWidth);
+        const progress = Math.max(0, Math.min(1, (clientX - rect.left - thumbWidth / 2) / usableWidth));
+        track.scrollLeft = loopMetrics.segmentStart + progress * loopMetrics.segmentWidth;
+        updateProjectTrackGeometry(track);
+        updateProjectScrollIndicator(track, loopMetrics);
+      };
+
+      scrollbar.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        scrollbar.setPointerCapture(event.pointerId);
+        setScrollFromClientX(event.clientX);
+      });
+      scrollbar.addEventListener('pointermove', (event) => {
+        if (scrollbar.hasPointerCapture(event.pointerId)) {
+          setScrollFromClientX(event.clientX);
+        }
+      });
+    }
+
+    window.addEventListener('resize', () => {
+      loopMetrics = null;
+      window.requestAnimationFrame(scrollToLoopStart);
+    });
+    window.requestAnimationFrame(scrollToLoopStart);
   }
 
   function startMatrixReveals() {
@@ -221,14 +570,19 @@
         });
       },
       {
-        rootMargin: '0px 0px -18% 0px',
-        threshold: 0.18,
+        rootMargin: window.innerWidth <= 680 ? '0px 0px 24% 0px' : '0px 0px -22% 0px',
+        threshold: 0.01,
       }
     );
 
     document.querySelectorAll('[data-matrix-reveal="section"]').forEach((section) => {
       revealObserver.observe(section);
     });
+
+    revealScrollHandler = queueRevealVisibleSections;
+    window.addEventListener('scroll', revealScrollHandler, { passive: true });
+    window.addEventListener('resize', revealScrollHandler);
+    queueRevealVisibleSections();
   }
 
   function randomIntroChar() {
@@ -427,6 +781,7 @@
 
     introDismissed = true;
     window.clearInterval(introNameTimer);
+    forceTopScroll();
     setIntroRainSpeedMode('decrypting');
     introScreen.classList.add('intro-revealing');
     decryptIntroName();
@@ -463,16 +818,32 @@
     });
   });
 
+  document.querySelectorAll('a[href^="#"]').forEach((link) => {
+    link.addEventListener('click', () => {
+      const id = link.getAttribute('href').slice(1);
+      const target = id ? document.getElementById(id) : null;
+
+      if (target) {
+        window.setTimeout(() => revealBlock(target, 0), reducedMotion ? 0 : 180);
+      }
+    });
+  });
+
+  setupProjectLoopScroller();
   setupMatrixReveals();
+  setupProjectCardTilt();
 
   if (introScreen) {
     introScreen.addEventListener('click', dismissIntro);
     startIntro();
   } else {
+    forceTopScroll();
     document.body.classList.remove('intro-active');
     startMatrixReveals();
     bootTerminal();
   }
+
+  window.addEventListener('pageshow', forceTopScroll);
 
   window.addEventListener('resize', () => {
     resizeCanvas();
@@ -497,6 +868,10 @@
     window.clearInterval(introDecryptTimer);
     if (revealObserver) {
       revealObserver.disconnect();
+    }
+    if (revealScrollHandler) {
+      window.removeEventListener('scroll', revealScrollHandler);
+      window.removeEventListener('resize', revealScrollHandler);
     }
   });
 })();

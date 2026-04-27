@@ -87,6 +87,8 @@ test('intro rain slows down while the identity decrypts', async ({ page }) => {
 
   await expect(rainCanvas).toHaveAttribute('data-rain-speed-mode', 'decrypting');
   await expect(rainCanvas).toHaveAttribute('data-rain-speed-target', '0.24');
+  await expect(rainCanvas).toHaveAttribute('data-glyph-refresh-frames', '180');
+  await expect(rainCanvas).toHaveAttribute('data-trail-alpha', '0.18');
   await page.waitForTimeout(450);
 
   const currentSpeed = Number(await rainCanvas.getAttribute('data-rain-speed-current'));
@@ -238,6 +240,18 @@ test('main matrix background matches the intro rain style and draws visible pixe
   await expect(matrixCanvas).toHaveAttribute('data-rain-alphabet', await introCanvas.getAttribute('data-rain-alphabet'));
   await expect(matrixCanvas).toHaveAttribute('data-font-size', await introCanvas.getAttribute('data-font-size'));
   await expect(matrixCanvas).toHaveAttribute('data-column-width', await introCanvas.getAttribute('data-column-width'));
+  await expect(matrixCanvas).toHaveAttribute('data-rain-speed', '0.24');
+  await expect(matrixCanvas).toHaveAttribute('data-trail-range', '5-18');
+  await expect(matrixCanvas).toHaveAttribute('data-glyph-refresh-frames', '72');
+  await expect(matrixCanvas).toHaveAttribute('data-glyph-refresh-mode', 'staggered-slow');
+  await expect(matrixCanvas).toHaveAttribute('data-frame-clear-mode', 'crisp');
+  await expect(matrixCanvas).toHaveAttribute('data-frame-clear-alpha', '1.00');
+  await expect(matrixCanvas).toHaveAttribute('data-respawn-mode', 'after-full-trail-exit');
+
+  const trailLengths = (await matrixCanvas.getAttribute('data-trail-lengths'))
+    .split(',')
+    .map(Number);
+  expect(new Set(trailLengths).size).toBeGreaterThanOrEqual(4);
 
   const matrixOpacity = await matrixCanvas.evaluate((canvas) => getComputedStyle(canvas).opacity);
   expect(Number(matrixOpacity)).toBeGreaterThanOrEqual(0.72);

@@ -23,15 +23,26 @@
   const glyphs = '01{}[]<>/\\$#@lostfrxksARTURPYTSFASTAPI';
   const matrixFontSize = 16;
   const matrixColumnWidth = 18;
+  const matrixRainSpeed = 0.24;
+  const matrixTrailMin = 5;
+  const matrixTrailMax = 18;
+  const matrixGlyphRefreshFrames = 72;
+  const matrixFrameClearAlpha = 1;
+  const matrixRespawnGapMax = 18;
   const introRainAlphabet = introRain ? introRain.getAttribute('data-rain-alphabet') : glyphs;
   const introNameAlphabet = '01{}[]<>/\\$#@ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const introRainNormalSpeed = 1;
   const introRainDecryptSpeed = 0.24;
+  const introRainNormalGlyphRefreshFrames = 4;
+  const introRainDecryptGlyphRefreshFrames = 180;
+  const introRainNormalTrailAlpha = 0.12;
+  const introRainDecryptTrailAlpha = 0.18;
   const revealTargets = [];
   let columns = [];
   let introRainColumns = [];
   let introRainSpeed = introRainNormalSpeed;
   let introRainTargetSpeed = introRainNormalSpeed;
+  let introRainFrame = 0;
   let animationId = 0;
   let introRainAnimationId = 0;
   let introNameTimer = 0;
@@ -39,6 +50,24 @@
   let introDismissed = false;
   let revealStarted = false;
   let revealObserver = null;
+  let matrixFrame = 0;
+
+  function randomFromAlphabet(alphabet) {
+    return alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+
+  function createMatrixColumn(height, spawnAbove) {
+    const trailLength = matrixTrailMin + Math.floor(Math.random() * (matrixTrailMax - matrixTrailMin + 1));
+    const y = spawnAbove
+      ? -matrixColumnWidth * (trailLength + 1 + Math.floor(Math.random() * matrixRespawnGapMax))
+      : Math.floor(Math.random() * height);
+    return {
+      y,
+      trailLength,
+      refreshOffset: Math.floor(Math.random() * matrixGlyphRefreshFrames),
+      glyphs: Array.from({ length: trailLength + 1 }, () => randomFromAlphabet(glyphs)),
+    };
+  }
 
   function resizeCanvas() {
     const ratio = window.devicePixelRatio || 1;
@@ -51,39 +80,71 @@
     canvas.dataset.rainAlphabet = introRainAlphabet;
     canvas.dataset.fontSize = String(matrixFontSize);
     canvas.dataset.columnWidth = String(matrixColumnWidth);
+    canvas.dataset.rainSpeed = matrixRainSpeed.toFixed(2);
+    canvas.dataset.trailRange = `${matrixTrailMin}-${matrixTrailMax}`;
+    canvas.dataset.glyphRefreshFrames = String(matrixGlyphRefreshFrames);
+    canvas.dataset.glyphRefreshMode = 'staggered-slow';
+    canvas.dataset.frameClearMode = 'crisp';
+    canvas.dataset.frameClearAlpha = matrixFrameClearAlpha.toFixed(2);
+    canvas.dataset.respawnMode = 'after-full-trail-exit';
 
     const columnCount = Math.ceil(window.innerWidth / matrixColumnWidth);
-    columns = Array.from({ length: columnCount }, () => Math.floor(Math.random() * window.innerHeight));
+    columns = Array.from({ length: columnCount }, () => createMatrixColumn(window.innerHeight));
+    canvas.dataset.trailLengths = columns.slice(0, 18).map((column) => column.trailLength).join(',');
     drawMatrixFrame(true);
   }
 
   function drawMatrixFrame(clear) {
-    if (clear) {
+    const frameClearAlpha = Number(canvas.dataset.frameClearAlpha || matrixFrameClearAlpha);
+    if (clear || frameClearAlpha >= 1) {
       context.fillStyle = '#020403';
       context.fillRect(0, 0, window.innerWidth, window.innerHeight);
     } else {
-      context.fillStyle = 'rgba(2, 4, 3, 0.12)';
+      context.fillStyle = `rgba(2, 4, 3, ${frameClearAlpha})`;
       context.fillRect(0, 0, window.innerWidth, window.innerHeight);
     }
 
     const fontSize = Number(canvas.dataset.fontSize || matrixFontSize);
     const columnWidth = Number(canvas.dataset.columnWidth || matrixColumnWidth);
+    const rainSpeed = Number(canvas.dataset.rainSpeed || matrixRainSpeed);
+    const refreshFrames = Number(canvas.dataset.glyphRefreshFrames || matrixGlyphRefreshFrames);
     const alphabet = canvas.dataset.rainAlphabet || glyphs;
     context.font = `${fontSize}px JetBrains Mono, Consolas, monospace`;
     context.textBaseline = 'top';
+    matrixFrame += 1;
 
     for (let index = 0; index < columns.length; index += 1) {
+      const column = columns[index];
       const x = index * columnWidth;
-      const y = columns[index];
-      const glyph = alphabet[Math.floor(Math.random() * alphabet.length)];
+      const y = column.y;
 
-      context.fillStyle = index % 9 === 0 ? '#65e7ff' : '#5cffb1';
-      context.fillText(glyph, x, y);
+      for (let segment = column.trailLength; segment >= 0; segment -= 1) {
+        const segmentY = y - segment * columnWidth;
+        if (segmentY < -columnWidth || segmentY > window.innerHeight + columnWidth) {
+          continue;
+        }
 
-      if (y > window.innerHeight + Math.random() * 800) {
-        columns[index] = 0;
+        const glyphIndex = column.trailLength - segment;
+        const shouldRefreshGlyph =
+          (matrixFrame + column.refreshOffset + glyphIndex * 17) % refreshFrames === 0;
+        if (!column.glyphs[glyphIndex] || shouldRefreshGlyph) {
+          column.glyphs[glyphIndex] = randomFromAlphabet(alphabet);
+        }
+
+        const glyph = column.glyphs[glyphIndex];
+        const alpha = segment === 0 ? 1 : Math.max(0.12, 1 - segment / (column.trailLength + 1));
+        const isHighlight = segment === 0 && index % 9 === 0;
+        context.fillStyle = isHighlight
+          ? `rgba(101, 231, 255, ${alpha})`
+          : `rgba(92, 255, 177, ${alpha})`;
+        context.fillText(glyph, x, segmentY);
+      }
+
+      const fullTrailExitY = window.innerHeight + (column.trailLength + 1) * columnWidth;
+      if (y > fullTrailExitY) {
+        columns[index] = createMatrixColumn(0, true);
       } else {
-        columns[index] = y + columnWidth;
+        column.y = y + columnWidth * rainSpeed;
       }
     }
   }
@@ -175,7 +236,15 @@
   }
 
   function randomRainChar() {
-    return introRainAlphabet[Math.floor(Math.random() * introRainAlphabet.length)];
+    return randomFromAlphabet(introRainAlphabet);
+  }
+
+  function createIntroRainColumn(height) {
+    return {
+      y: Math.floor(Math.random() * height),
+      glyph: randomRainChar(),
+      refreshOffset: Math.floor(Math.random() * introRainDecryptGlyphRefreshFrames),
+    };
   }
 
   function setIntroRainSpeedMode(mode) {
@@ -184,9 +253,15 @@
     }
 
     introRainTargetSpeed = mode === 'decrypting' ? introRainDecryptSpeed : introRainNormalSpeed;
+    const refreshFrames =
+      mode === 'decrypting' ? introRainDecryptGlyphRefreshFrames : introRainNormalGlyphRefreshFrames;
+    const trailAlpha =
+      mode === 'decrypting' ? introRainDecryptTrailAlpha : introRainNormalTrailAlpha;
     introRain.dataset.rainSpeedMode = mode;
     introRain.dataset.rainSpeedTarget = introRainTargetSpeed.toFixed(2);
     introRain.dataset.rainSpeedCurrent = introRainSpeed.toFixed(2);
+    introRain.dataset.glyphRefreshFrames = String(refreshFrames);
+    introRain.dataset.trailAlpha = trailAlpha.toFixed(2);
   }
 
   function scrambleIntroName(lockedCount) {
@@ -221,7 +296,7 @@
     const columnCount = Math.ceil(window.innerWidth / columnWidth);
     introRainColumns = Array.from(
       { length: columnCount },
-      () => Math.floor(Math.random() * window.innerHeight)
+      () => createIntroRainColumn(window.innerHeight)
     );
     drawIntroRainFrame(true);
   }
@@ -233,7 +308,10 @@
 
     const fontSize = Number(introRain.dataset.fontSize || 22);
     const columnWidth = Number(introRain.dataset.columnWidth || matrixColumnWidth);
-    const trailAlpha = introRainTargetSpeed < introRainNormalSpeed ? 0.08 : 0.12;
+    const refreshFrames = Number(introRain.dataset.glyphRefreshFrames || introRainNormalGlyphRefreshFrames);
+    const trailAlpha =
+      introRainTargetSpeed < introRainNormalSpeed ? introRainDecryptTrailAlpha : introRainNormalTrailAlpha;
+    introRain.dataset.trailAlpha = trailAlpha.toFixed(2);
     if (clear) {
       introRainSpeed = introRainTargetSpeed;
     } else {
@@ -245,19 +323,25 @@
     introRainContext.fillRect(0, 0, window.innerWidth, window.innerHeight);
     introRainContext.font = `${fontSize}px JetBrains Mono, Consolas, monospace`;
     introRainContext.textBaseline = 'top';
+    introRainFrame += 1;
 
     for (let index = 0; index < introRainColumns.length; index += 1) {
+      const column = introRainColumns[index];
       const x = index * columnWidth;
-      const y = introRainColumns[index];
-      const char = randomRainChar();
+      const y = column.y;
+
+      if (!column.glyph || (introRainFrame + column.refreshOffset) % refreshFrames === 0) {
+        column.glyph = randomRainChar();
+      }
 
       introRainContext.fillStyle = index % 9 === 0 ? '#65e7ff' : '#5cffb1';
-      introRainContext.fillText(char, x, y);
+      introRainContext.fillText(column.glyph, x, y);
 
       if (y > window.innerHeight + Math.random() * 700) {
-        introRainColumns[index] = -columnWidth * Math.floor(Math.random() * 12);
+        introRainColumns[index] = createIntroRainColumn(0);
+        introRainColumns[index].y = -columnWidth * Math.floor(Math.random() * 12);
       } else {
-        introRainColumns[index] = y + columnWidth * introRainSpeed;
+        column.y = y + columnWidth * introRainSpeed;
       }
     }
   }

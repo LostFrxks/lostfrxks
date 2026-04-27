@@ -177,11 +177,9 @@ button:focus-visible {
   white-space: nowrap;
   text-align: center;
   text-shadow: 0 0 28px rgba(92, 255, 177, 0.38);
-  transform: scale(1.08);
   filter: blur(0.35px);
   transition:
     letter-spacing 1050ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 1050ms cubic-bezier(0.22, 1, 0.36, 1),
     filter 1050ms ease,
     text-shadow 1050ms ease;
 }
@@ -189,7 +187,6 @@ button:focus-visible {
 .intro-screen.intro-revealing .intro-name {
   color: var(--text);
   letter-spacing: 0.02rem;
-  transform: scale(1);
   filter: blur(0);
   text-shadow: 0 0 36px rgba(101, 231, 255, 0.56), 0 0 80px rgba(92, 255, 177, 0.2);
 }

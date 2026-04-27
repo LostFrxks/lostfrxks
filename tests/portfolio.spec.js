@@ -88,7 +88,36 @@ test('intro exits through a reveal transition instead of a hard cut', async ({ p
 test('intro reveal keeps Artur name transition free of zoom scaling', async ({ page }) => {
   await page.goto('/');
 
+  const idleScale = await page.locator('[data-intro-name]').evaluate((element) => {
+    const transform = getComputedStyle(element).transform;
+    if (transform === 'none') {
+      return { x: 1, y: 1 };
+    }
+
+    const values = transform.match(/matrix.*\((.+)\)/)[1].split(',').map(Number);
+    return { x: values[0], y: values[3] };
+  });
+
+  expect(idleScale.x).toBeCloseTo(1, 2);
+  expect(idleScale.y).toBeCloseTo(1, 2);
+
   await page.getByRole('button', { name: /enter matrix intro/i }).click();
+  await expect(page.locator('#intro-screen')).toHaveClass(/intro-revealing/);
+  await page.waitForTimeout(180);
+
+  const decryptingScale = await page.locator('[data-intro-name]').evaluate((element) => {
+    const transform = getComputedStyle(element).transform;
+    if (transform === 'none') {
+      return { x: 1, y: 1 };
+    }
+
+    const values = transform.match(/matrix.*\((.+)\)/)[1].split(',').map(Number);
+    return { x: values[0], y: values[3] };
+  });
+
+  expect(decryptingScale.x).toBeCloseTo(1, 2);
+  expect(decryptingScale.y).toBeCloseTo(1, 2);
+
   await expect(page.locator('[data-intro-name]')).toHaveText('Artur Usenov');
   await expect(page.locator('#intro-screen')).toHaveClass(/intro-exiting/);
   await page.waitForTimeout(180);

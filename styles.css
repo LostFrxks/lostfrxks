@@ -233,6 +233,115 @@ button:focus-visible {
   }
 }
 
+.matrix-reveal {
+  --reveal-delay: 0ms;
+  opacity: 0;
+  transform: translate3d(0, 26px, 0) scale(0.985);
+  filter: blur(10px) saturate(1.25);
+  clip-path: inset(36% 0 34% 0);
+  will-change: opacity, transform, filter, clip-path;
+}
+
+.section-band.matrix-reveal,
+.terminal-window.matrix-reveal,
+.identity-panel.matrix-reveal,
+.command-dock.matrix-reveal,
+.project-card.matrix-reveal,
+.stack-card.matrix-reveal,
+.achievement-card.matrix-reveal,
+.timeline li.matrix-reveal,
+.contact-actions a.matrix-reveal {
+  position: relative;
+  overflow: hidden;
+}
+
+.matrix-reveal::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    linear-gradient(180deg, transparent 0%, rgba(223, 255, 238, 0.72) 48%, transparent 100%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(92, 255, 177, 0.2) 0,
+      rgba(92, 255, 177, 0.2) 1px,
+      transparent 1px,
+      transparent 9px
+    ),
+    repeating-linear-gradient(
+      180deg,
+      rgba(101, 231, 255, 0.14) 0,
+      rgba(101, 231, 255, 0.14) 1px,
+      transparent 1px,
+      transparent 7px
+    );
+  mix-blend-mode: screen;
+  transform: translateY(-110%);
+}
+
+.matrix-reveal.matrix-revealed {
+  animation: matrixMaterialize 850ms cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay) both;
+}
+
+.matrix-reveal.matrix-revealed::after {
+  animation: matrixScan 900ms cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay) both;
+}
+
+[data-matrix-reveal="section"] {
+  scroll-margin-top: 5.25rem;
+}
+
+[data-matrix-reveal="item"] {
+  transform: translate3d(0, 18px, 0) scale(0.98);
+}
+
+@keyframes matrixMaterialize {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 28px, 0) scale(0.982);
+    filter: blur(12px) saturate(1.35);
+    clip-path: inset(44% 0 48% 0);
+  }
+
+  28% {
+    opacity: 0.7;
+    transform: translate3d(0, 10px, 0) scale(0.996);
+    filter: blur(5px) saturate(1.28);
+    clip-path: inset(20% 0 22% 0);
+  }
+
+  62% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0) saturate(1);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes matrixScan {
+  0% {
+    opacity: 0;
+    transform: translateY(-115%);
+  }
+
+  20% {
+    opacity: 0.95;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(115%);
+  }
+}
+
 .scanline {
   position: fixed;
   inset: 0;

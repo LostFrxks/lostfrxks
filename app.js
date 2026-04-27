@@ -9,10 +9,22 @@
   const commands = document.querySelectorAll('[data-target]');
   const bootLines = document.querySelectorAll('[data-boot-text]');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const revealGroups = [
+    { selector: '.site-header', type: 'chrome' },
+    { selector: '.hero', type: 'hero' },
+    { selector: '.terminal-window, .identity-panel, .command-dock', type: 'panel' },
+    { selector: 'main > .section-band:not(.hero)', type: 'section' },
+    {
+      selector:
+        '.project-card, .stack-card, .achievement-card, .timeline li, .contact-actions > a, .mock-socials a',
+      type: 'item',
+    },
+  ];
 
   const glyphs = '01{}[]<>/\\$#@lostfrxksARTURPYTSFASTAPI';
   const introRainAlphabet = introRain ? introRain.getAttribute('data-rain-alphabet') : '漢アイ가А01{}[]';
   const introNameAlphabet = '01{}[]<>/\\$#@ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const revealTargets = [];
   let columns = [];
   let introRainColumns = [];
   let animationId = 0;
@@ -21,6 +33,8 @@
   let introDecryptTimer = 0;
   let introDismissed = false;
   let matrixEnabled = true;
+  let revealStarted = false;
+  let revealObserver = null;
 
   function resizeCanvas() {
     const ratio = window.devicePixelRatio || 1;
@@ -73,6 +87,83 @@
     document.body.classList.toggle('matrix-muted', !enabled);
     toggle.setAttribute('aria-pressed', String(enabled));
     toggle.innerHTML = enabled ? '<span>$</span> matrix:on' : '<span>$</span> matrix:low';
+  }
+
+  function setupMatrixReveals() {
+    const seen = new Set();
+
+    revealGroups.forEach((group) => {
+      document.querySelectorAll(group.selector).forEach((element, index) => {
+        if (seen.has(element)) {
+          return;
+        }
+
+        seen.add(element);
+        element.classList.add('matrix-reveal');
+        element.setAttribute('data-matrix-reveal', group.type);
+        revealTargets.push(element);
+      });
+    });
+  }
+
+  function revealElement(element, order) {
+    if (!element || element.classList.contains('matrix-revealed')) {
+      return;
+    }
+
+    const delay = reducedMotion ? 0 : Math.min(order * 80, 520);
+    element.style.setProperty('--reveal-delay', `${delay}ms`);
+    element.classList.add('matrix-revealed');
+  }
+
+  function revealChildren(container) {
+    const children = Array.from(
+      container.querySelectorAll('[data-matrix-reveal="panel"], [data-matrix-reveal="item"]')
+    );
+    children.forEach((child, index) => revealElement(child, index + 1));
+  }
+
+  function revealBlock(element, order) {
+    revealElement(element, order);
+    revealChildren(element);
+  }
+
+  function startMatrixReveals() {
+    if (revealStarted) {
+      return;
+    }
+
+    revealStarted = true;
+    document.body.classList.add('matrix-reveal-live');
+
+    if (reducedMotion) {
+      revealTargets.forEach((element) => revealElement(element, 0));
+      return;
+    }
+
+    revealElement(document.querySelector('.site-header'), 0);
+    revealBlock(document.querySelector('.hero'), 1);
+
+    revealObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) {
+            return;
+          }
+
+          revealBlock(entry.target, 0);
+          revealObserver.unobserve(entry.target);
+        });
+      },
+      {
+        rootMargin: '0px 0px -18% 0px',
+        threshold: 0.18,
+      }
+    );
+
+    document.querySelectorAll('[data-matrix-reveal="section"]').forEach((section) => {
+      revealObserver.observe(section);
+    });
   }
 
   function randomIntroChar() {
@@ -186,6 +277,7 @@
     introScreen.classList.add('intro-exiting');
     document.body.classList.remove('intro-active');
     document.body.classList.add('site-revealing');
+    window.setTimeout(startMatrixReveals, reducedMotion ? 0 : 260);
     window.setTimeout(finishIntro, reducedMotion ? 240 : 1350);
   }
 
@@ -254,6 +346,7 @@
       const target = document.getElementById(button.dataset.target);
       if (target) {
         target.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+        window.setTimeout(() => revealBlock(target, 0), reducedMotion ? 0 : 260);
       }
     });
   });
@@ -262,11 +355,14 @@
     setMatrixState(!matrixEnabled);
   });
 
+  setupMatrixReveals();
+
   if (introScreen) {
     introScreen.addEventListener('click', dismissIntro);
     startIntro();
   } else {
     document.body.classList.remove('intro-active');
+    startMatrixReveals();
     bootTerminal();
   }
 
@@ -292,5 +388,8 @@
     }
     window.clearInterval(introNameTimer);
     window.clearInterval(introDecryptTimer);
+    if (revealObserver) {
+      revealObserver.disconnect();
+    }
   });
 })();

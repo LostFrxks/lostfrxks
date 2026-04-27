@@ -85,6 +85,25 @@ test('intro exits through a reveal transition instead of a hard cut', async ({ p
   await expect(intro).toBeHidden();
 });
 
+test('main sections materialize with matrix reveal as they enter view', async ({ page }) => {
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const hero = page.locator('.hero');
+  const projects = page.locator('#projects');
+  const projectCards = page.locator('#projects .project-card');
+
+  await expect(hero).toHaveAttribute('data-matrix-reveal', 'hero');
+  await expect(projects).toHaveAttribute('data-matrix-reveal', 'section');
+  await expect(projects).not.toHaveClass(/matrix-revealed/);
+
+  await page.getByRole('button', { name: /projects command/i }).click();
+
+  await expect(projects).toHaveClass(/matrix-revealed/);
+  await expect(projectCards.first()).toHaveClass(/matrix-revealed/);
+  await expect(projectCards.nth(4)).toHaveClass(/matrix-revealed/);
+});
+
 test('hero presents Artur as lostfrxks fullstack developer', async ({ page }) => {
   await page.goto('/');
   await enterPortfolio(page);

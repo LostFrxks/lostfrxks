@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
       rel="stylesheet"
     >
-    <link rel="stylesheet" href="styles.css?v=no-forced-hash-scroll-20260428">
+    <link rel="stylesheet" href="styles.css?v=whoami-copy-typing-20260428">
   </head>
   <body class="intro-active">
     <canvas id="matrix-canvas" aria-hidden="true"></canvas>
@@ -53,9 +53,9 @@
             </div>
             <div class="terminal-content">
               <p class="prompt-line"><span>lostfrxks@portfolio</span>:~$ ./boot_artur.sh</p>
-              <p class="boot-line" data-boot-text="loading public profile...">loading public profile...</p>
-              <p class="boot-line" data-boot-text="mounting projects: GUROO, USC, Homy, embedding-search">mounting projects: GUROO, USC, Homy, embedding-search</p>
-              <p class="boot-line ok" data-boot-text="status: online">status: online</p>
+              <p class="boot-line" data-boot-text="loading public profile..."></p>
+              <p class="boot-line" data-boot-text="mounting projects: GUROO, USC, Homy, embedding-search"></p>
+              <p class="boot-line ok" data-boot-text="status: online"></p>
               <p class="eyebrow">Fullstack Developer // backend-leaning systems builder</p>
               <h1 id="hero-title">Artur Usenov</h1>
               <p class="handle">lostfrxks</p>
@@ -89,8 +89,8 @@
             >
             <dl class="signal-list">
               <div>
-                <dt>Mode</dt>
-                <dd>ship working MVPs</dd>
+                <dt>Current Role</dt>
+                <dd>Junior Backend Developer at MDigital</dd>
               </div>
               <div>
                 <dt>Education</dt>
@@ -112,21 +112,20 @@
       <section id="whoami" class="section-band" aria-labelledby="whoami-title">
         <div class="section-inner two-column">
           <div>
-            <p class="section-kicker">/usr/bin/whoami</p>
-            <h2 id="whoami-title">Backend brain, fullstack hands.</h2>
+            <p class="section-kicker whoami-command">
+              <span data-whoami-command>/usr/bin/whoami</span>
+            </p>
+            <h2 id="whoami-title" data-whoami-heading>Backend brain, fullstack hands.</h2>
           </div>
           <div class="prose-block">
-            <p>
-              I am Artur Usenov, a Software Engineering and Social Transformation student at AUCA,
-              focused on backend development, algorithms, and fullstack products. I work confidently
-              with Python and Django, build frontend interfaces with React and TypeScript, and keep
-              pushing through pet projects that turn coursework and hackathon pressure into real software.
-            </p>
-            <p>
-              The strongest public signals are project-based: tutor systems, real estate CRUD apps,
-              semantic search, Docker-ready marketplaces, voice backend experiments, ICPC practice,
-              and a Makeathon win.
-            </p>
+            <p
+              data-whoami-line="intro"
+              data-whoami-text="I am Artur Usenov, a Software Engineering and Social Transformation student at AUCA, focused on backend development, algorithms, and fullstack products. I work confidently with Python and Django, build frontend interfaces with React and TypeScript, and keep pushing through pet projects that turn coursework and hackathon pressure into real software."
+            ></p>
+            <p
+              data-whoami-line="signals"
+              data-whoami-text="The strongest public signals are project-based: tutor systems, real estate CRUD apps, semantic search, Docker-ready marketplaces, production e-commerce, ICPC practice, and a Makeathon win."
+            ></p>
           </div>
         </div>
       </section>
@@ -142,7 +141,7 @@
                 <li class="project-grid__item">
                   <article class="project-card">
                     <div class="card-meta">
-                      <span>status: shipped</span>
+                      <span>shipped</span>
                       <span>role: fullstack</span>
                     </div>
                     <h3>GUROO</h3>
@@ -165,7 +164,7 @@
                 <li class="project-grid__item">
                   <article class="project-card">
                     <div class="card-meta">
-                      <span>status: active</span>
+                      <span>active</span>
                       <span>scope: platform</span>
                     </div>
                     <h3>USC</h3>
@@ -187,7 +186,7 @@
                 <li class="project-grid__item">
                   <article class="project-card">
                     <div class="card-meta">
-                      <span>status: built</span>
+                      <span>built</span>
                       <span>domain: real estate</span>
                     </div>
                     <h3>Homy</h3>
@@ -211,7 +210,7 @@
                 <li class="project-grid__item">
                   <article class="project-card">
                     <div class="card-meta">
-                      <span>status: prototype</span>
+                      <span>prototype</span>
                       <span>domain: semantic</span>
                     </div>
                     <h3>embedding-search</h3>
@@ -233,22 +232,28 @@
                 <li class="project-grid__item">
                   <article class="project-card">
                     <div class="card-meta">
-                      <span>status: experiment</span>
-                      <span>domain: voice</span>
+                      <span>production</span>
+                      <span>domain: e-commerce</span>
                     </div>
-                    <h3>mbank-voice-stand</h3>
+                    <h3>ATLAS-STORE</h3>
                     <p>
-                      Voice backend stand with Python service code, gRPC dependencies,
-                      Kotlin SDK surfaces, C++ pieces, and integration-oriented structure.
+                      Production e-commerce for home appliances and household goods with
+                      public storefront, catalog, product pages, cart, checkout, admin,
+                      notifications, integrations, Docker deployment, and tests.
                     </p>
-                    <ul class="chip-list" aria-label="mbank-voice-stand stack">
-                      <li>Python</li>
-                      <li>Kotlin</li>
-                      <li>C++</li>
-                      <li>gRPC</li>
-                      <li>FastAPI</li>
+                    <ul class="chip-list" aria-label="ATLAS-STORE stack">
+                      <li>Next.js</li>
+                      <li>React</li>
+                      <li>TypeScript</li>
+                      <li>Django REST</li>
+                      <li>PostgreSQL</li>
+                      <li>Redis</li>
+                      <li>Celery</li>
+                      <li>Docker</li>
+                      <li>Telegram Bot API</li>
+                      <li>SMTP</li>
                     </ul>
-                    <a href="https://github.com/LostFrxks/mbank-voice-stand" target="_blank" rel="noreferrer">open repo</a>
+                    <a href="https://atlas-store.kg/" target="_blank" rel="noreferrer">open atlas-store</a>
                   </article>
                 </li>
               </ul>
@@ -337,6 +342,10 @@
               <span>Homy, GUROO, embedding-search, coursework and fullstack practice.</span>
             </li>
             <li>
+              <time>Dec 2025 - Feb 2026</time>
+              <span>MBank backend developer internship, three months building backend systems in production context.</span>
+            </li>
+            <li>
               <time>2026</time>
               <span>USC, college-homeworks, voice stand experiments, fresh GitHub activity.</span>
             </li>
@@ -344,7 +353,7 @@
         </div>
       </section>
 
-      <section id="contact" class="section-band final-band" aria-labelledby="contact-title">
+      <section id="contact" class="section-band" aria-labelledby="contact-title">
         <div class="section-inner contact-layout">
           <div>
             <p class="section-kicker">sudo hire lostfrxks</p>
@@ -366,8 +375,26 @@
           </div>
         </div>
       </section>
+
+      <section
+        id="ascii-torus"
+        class="section-band final-band ascii-torus-band"
+        aria-label="Interactive ASCII torus artifact"
+        data-ascii-torus="interactive"
+      >
+        <div class="section-inner ascii-torus-layout">
+          <div class="ascii-torus-shell" aria-label="Interactive 3D ASCII torus">
+            <pre
+              class="ascii-torus-output"
+              aria-hidden="true"
+              data-ascii-torus-output
+            ></pre>
+          </div>
+        </div>
+      </section>
     </main>
 
-    <script src="app.js?v=no-forced-hash-scroll-20260428"></script>
+    <script src="ascii-torus.js?v=ascii-torus-20260428"></script>
+    <script src="app.js?v=ascii-torus-20260428"></script>
   </body>
 </html>

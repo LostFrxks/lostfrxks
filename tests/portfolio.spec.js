@@ -22,7 +22,27 @@ function transitionDurationForProperty(state, property) {
 
 async function enterPortfolio(page) {
   await page.getByRole('button', { name: /enter matrix intro/i }).click();
-  await expect(page.locator('#intro-screen')).toBeHidden();
+  await expect(page.locator('#intro-screen')).toBeHidden({ timeout: 10000 });
+}
+
+async function disableSmoothScroll(page) {
+  await page.evaluate(() => {
+    document.documentElement.style.scrollBehavior = 'auto';
+    document.body.style.scrollBehavior = 'auto';
+  });
+}
+
+async function jumpToScrollY(page, y) {
+  await disableSmoothScroll(page);
+  await page.evaluate(
+    (targetY) =>
+      new Promise((resolve) => {
+        window.scrollTo(0, targetY);
+        window.dispatchEvent(new Event('scroll'));
+        window.requestAnimationFrame(() => window.requestAnimationFrame(resolve));
+      }),
+    y
+  );
 }
 
 test('browser title uses the lostfrxks site name', async ({ page }) => {
@@ -352,7 +372,7 @@ test('desktop matrix sections wait until they are inside the viewport before rev
     const top = element.getBoundingClientRect().top + window.scrollY;
     return Math.max(0, top - window.innerHeight * 0.82);
   });
-  await page.evaluate((y) => window.scrollTo(0, y), earlyScrollY);
+  await jumpToScrollY(page, earlyScrollY);
   await page.waitForTimeout(180);
 
   await expect(stack).not.toHaveClass(/matrix-revealed/);
@@ -361,7 +381,7 @@ test('desktop matrix sections wait until they are inside the viewport before rev
     const top = element.getBoundingClientRect().top + window.scrollY;
     return Math.max(0, top - window.innerHeight * 0.74);
   });
-  await page.evaluate((y) => window.scrollTo(0, y), revealScrollY);
+  await jumpToScrollY(page, revealScrollY);
 
   await expect(stack).toHaveClass(/matrix-revealed/);
 });
@@ -373,10 +393,50 @@ test('hero presents Artur as lostfrxks fullstack developer', async ({ page }) =>
   await expect(page.getByRole('heading', { name: /Artur Usenov/i })).toBeVisible();
   await expect(page.getByText(/lostfrxks/i).first()).toBeVisible();
   await expect(page.getByText(/Fullstack Developer/i).first()).toBeVisible();
+  await expect(page.getByText(/Current Role/i)).toBeVisible();
+  await expect(page.getByText(/Junior Backend Developer at MDigital/i)).toBeVisible();
+  await expect(page.getByText(/ship working MVPs/i)).toHaveCount(0);
   await expect(page.getByText(/Python \/ Django \/ React \/ TypeScript \/ C\+\+/i)).toBeVisible();
   await expect(page.getByText(/TSI AUCA, 2022-2026, GPA 3\.85/i)).toBeVisible();
   await expect(page.getByText(/AUCA TSI/i)).toHaveCount(0);
   await expect(page.getByRole('link', { name: /GitHub/i })).toBeVisible();
+});
+
+test('whoami block reveals its heading before typing the right-side copy', async ({ page }) => {
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const whoami = page.locator('#whoami');
+  const command = page.locator('[data-whoami-command]');
+  const heading = page.locator('[data-whoami-heading]');
+  const firstParagraph = page.locator('[data-whoami-line="intro"]');
+  const secondParagraph = page.locator('[data-whoami-line="signals"]');
+
+  await expect(firstParagraph).toHaveText('');
+  await expect(secondParagraph).toHaveText('');
+
+  await page.locator('.nav-links a[href="#whoami"]').click();
+  await expect(whoami).toHaveClass(/matrix-revealed/);
+  await expect(command).toHaveText('/usr/bin/whoami');
+  await expect(heading).toHaveText('Backend brain, fullstack hands.');
+  await expect(page.locator('[data-whoami-spinner]')).toHaveCount(0);
+  await expect(firstParagraph).toContainText(/I am Artur Usenov/);
+  await expect(secondParagraph).toContainText(/The strongest public signals/);
+});
+
+test('boot lines are hidden until the terminal types them', async ({ page }) => {
+  await page.goto('/');
+
+  const bootLines = page.locator('[data-boot-text]');
+  await expect(bootLines.first()).toHaveText('');
+  await expect(bootLines.nth(1)).toHaveText('');
+  await expect(bootLines.nth(2)).toHaveText('');
+
+  await enterPortfolio(page);
+
+  await expect(bootLines.first()).toHaveText('loading public profile...');
+  await expect(bootLines.nth(1)).toHaveText('mounting projects: GUROO, USC, Homy, embedding-search');
+  await expect(bootLines.nth(2)).toHaveText('status: online');
 });
 
 test('featured projects and achievements are visible', async ({ page }) => {
@@ -384,21 +444,34 @@ test('featured projects and achievements are visible', async ({ page }) => {
   await enterPortfolio(page);
 
   const projectGrid = page.locator('#projects .project-grid');
+  const timeline = page.locator('.timeline');
 
   await expect(page.getByRole('heading', { name: /Featured Systems/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /GUROO/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /USC/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Homy/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /ATLAS-STORE/i })).toBeVisible();
+  await expect(page.getByText(/mbank-voice-stand/i)).toHaveCount(0);
   await expect(projectGrid.getByText(/Django, HTML, CSS,\s+JavaScript, SQLite/i)).toBeVisible();
   await expect(projectGrid.getByText(/agent profile with avatar and metrics/i)).toBeVisible();
+  await expect(projectGrid.getByText(/production e-commerce/i)).toBeVisible();
+  await expect(projectGrid.getByText(/Next\.js/i)).toBeVisible();
+  await expect(projectGrid.getByText(/Django REST/i)).toBeVisible();
+  await expect(projectGrid.getByText(/status:/i)).toHaveCount(0);
   await expect(page.getByText(/Makeathon Winner/i)).toBeVisible();
   await expect(page.getByText(/LeetCode 260\+/i)).toBeVisible();
   await expect(page.getByRole('link', { name: /LeetCode profile: lostfrxks/i })).toHaveAttribute(
     'href',
     'https://leetcode.com/u/lostfrxks/'
   );
+  await expect(page.getByRole('link', { name: /open atlas-store/i })).toHaveAttribute(
+    'href',
+    'https://atlas-store.kg/'
+  );
   await expect(page.getByLabel('Signals').getByText(/ICPC NERC 2025 finalist/i)).toBeVisible();
   await expect(page.getByLabel('Signals').getByText(/GPA 3\.85/i)).toBeVisible();
+  await expect(timeline.getByText(/Dec 2025 - Feb 2026/i)).toBeVisible();
+  await expect(timeline.getByText(/MBank backend developer internship/i)).toBeVisible();
 });
 
 test('featured projects use a stable card grid without slider mechanics', async ({ page }) => {
@@ -456,6 +529,7 @@ test('project cards deform into a cursor-driven 3D tilt', async ({ page }) => {
 
   const card = page.locator('#projects .project-card').first();
   await expect(card).toHaveClass(/matrix-revealed/);
+  await expect(card).toHaveClass(/matrix-reveal-settled/);
   await expect(card).toHaveAttribute('data-card-tilt', 'idle');
 
   const box = await card.boundingBox();
@@ -605,6 +679,46 @@ test('achievement cards use the same cursor-driven 3D tilt', async ({ page }) =>
   expect(idleAnimationName).not.toContain('matrixMaterialize');
 });
 
+test('mobile cards ignore tap hover effects instead of showing sticky 3D or glow', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const card = page.locator('#projects .project-card').first();
+  await card.scrollIntoViewIfNeeded();
+  await expect(card).toHaveClass(/matrix-revealed/);
+  await expect(card).toHaveAttribute('data-card-tilt', 'idle');
+
+  await card.evaluate((element) => {
+    element.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        pointerType: 'touch',
+        clientX: element.getBoundingClientRect().left + element.getBoundingClientRect().width / 2,
+        clientY: element.getBoundingClientRect().top + element.getBoundingClientRect().height / 2,
+      })
+    );
+  });
+
+  await expect(card).not.toHaveClass(/card-tilt-active/);
+  await expect(card).not.toHaveClass(/card-touch-active/);
+  await expect(card).toHaveAttribute('data-card-touch', 'idle');
+
+  const touchState = await card.evaluate((element) => ({
+    transform: getComputedStyle(element).transform,
+    tiltX: getComputedStyle(element).getPropertyValue('--card-tilt-x').trim(),
+    tiltY: getComputedStyle(element).getPropertyValue('--card-tilt-y').trim(),
+  }));
+
+  expect(touchState.transform).not.toContain('matrix3d');
+  expect(touchState.tiltX).toBe('0deg');
+  expect(touchState.tiltY).toBe('0deg');
+
+  await page.waitForTimeout(280);
+  await expect(card).not.toHaveClass(/card-touch-active/);
+  await expect(card).toHaveAttribute('data-card-touch', 'idle');
+});
+
 test('primary navigation uses header links without the hero command dock', async ({ page }) => {
   await page.goto('/');
   await enterPortfolio(page);
@@ -723,7 +837,7 @@ test('mobile matrix sections reveal before they are deep in the viewport', async
     const top = element.getBoundingClientRect().top + window.scrollY;
     return Math.max(0, top - window.innerHeight + 96);
   });
-  await page.evaluate((y) => window.scrollTo(0, y), scrollY);
+  await jumpToScrollY(page, scrollY);
 
   await expect(stack).toHaveClass(/matrix-revealed/);
 });
@@ -732,6 +846,7 @@ test('mobile project cards reveal individually as their column items enter view'
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await enterPortfolio(page);
+  await disableSmoothScroll(page);
 
   const projects = page.locator('#projects');
   const projectCards = page.locator('#projects .project-card');
@@ -745,7 +860,7 @@ test('mobile project cards reveal individually as their column items enter view'
     const top = element.getBoundingClientRect().top + window.scrollY;
     return Math.max(0, top - window.innerHeight * 0.82);
   });
-  await page.evaluate((y) => window.scrollTo(0, y), almostVisibleScrollY);
+  await jumpToScrollY(page, almostVisibleScrollY);
   await page.waitForTimeout(220);
 
   await expect(projectCards.nth(1)).not.toHaveClass(/matrix-revealed/);
@@ -754,7 +869,7 @@ test('mobile project cards reveal individually as their column items enter view'
     const top = element.getBoundingClientRect().top + window.scrollY;
     return Math.max(0, top - window.innerHeight * 0.68);
   });
-  await page.evaluate((y) => window.scrollTo(0, y), revealScrollY);
+  await jumpToScrollY(page, revealScrollY);
 
   await expect(projectCards.nth(1)).toHaveClass(/matrix-revealed/);
 
@@ -792,7 +907,7 @@ test('mobile contact actions reveal with the final contact section', async ({ pa
     const top = element.getBoundingClientRect().top + window.scrollY;
     return Math.max(0, top - window.innerHeight + 96);
   });
-  await page.evaluate((y) => window.scrollTo(0, y), scrollY);
+  await jumpToScrollY(page, scrollY);
 
   await expect(contact).toHaveClass(/matrix-revealed/);
   await expect(firstContactAction).toHaveClass(/matrix-revealed/);
@@ -821,4 +936,312 @@ test('contact links include real email LinkedIn Telegram and Instagram profiles'
     'href',
     'https://www.instagram.com/lostfrxks/'
   );
+});
+
+test('contact is followed by an interactive ascii torus artifact', async ({ page }) => {
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  await page.locator('.nav-links a[href="#contact"]').click();
+  const artifact = page.locator('#ascii-torus');
+  const torusOutput = artifact.locator('[data-ascii-torus-output]');
+
+  await expect(artifact).toBeVisible();
+  await expect(artifact).toHaveAttribute('data-matrix-reveal', 'section');
+  await expect(artifact).toHaveAttribute('data-ascii-torus', 'interactive');
+  await expect(torusOutput).toContainText(/[.@#$*+=:;~\-_/<>01]{12,}/);
+
+  const contactBottom = await page.locator('#contact').evaluate((element) => element.offsetTop + element.offsetHeight);
+  const torusTop = await artifact.evaluate((element) => element.offsetTop);
+  expect(torusTop).toBeGreaterThanOrEqual(contactBottom);
+
+  const before = await artifact.getAttribute('data-torus-rotation');
+  const box = await artifact.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box.x + box.width * 0.35, box.y + box.height * 0.35);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.78, box.y + box.height * 0.62, { steps: 8 });
+  await page.mouse.up();
+
+  await expect
+    .poll(() => artifact.getAttribute('data-torus-rotation'), { timeout: 2000 })
+    .not.toBe(before);
+});
+
+test('ascii torus artifact floats near contact without terminal chrome', async ({ page }) => {
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const artifact = page.locator('#ascii-torus');
+  await artifact.scrollIntoViewIfNeeded();
+
+  await expect(artifact.getByText(/floating artifact/i)).toHaveCount(0);
+  await expect(artifact.getByText(/^ASCII Torus$/i)).toHaveCount(0);
+  await expect(artifact.getByText(/small symbol engine/i)).toHaveCount(0);
+  await expect(artifact.locator('.ascii-torus-bar')).toHaveCount(0);
+
+  const sizing = await artifact.evaluate((element) => {
+    const contact = document.getElementById('contact');
+    const wrapper = element.querySelector('.section-inner');
+    const shell = element.querySelector('.ascii-torus-shell');
+    const output = element.querySelector('[data-ascii-torus-output]');
+    const shellStyles = getComputedStyle(shell);
+    const shellBeforeStyles = getComputedStyle(shell, '::before');
+    const shellAfterStyles = getComputedStyle(shell, '::after');
+    const outputRect = output.getBoundingClientRect();
+    return {
+      contactGap: element.offsetTop - (contact.offsetTop + contact.offsetHeight),
+      wrapperWidth: wrapper.getBoundingClientRect().width,
+      shellWidth: shell.getBoundingClientRect().width,
+      shellBorder: shellStyles.borderTopWidth,
+      shellGlow: shellStyles.boxShadow,
+      beforeGlow: shellBeforeStyles.backgroundImage,
+      beforeOpacity: shellBeforeStyles.opacity,
+      afterGlow: shellAfterStyles.backgroundImage,
+      outputWidth: outputRect.width,
+      outputHeight: outputRect.height,
+    };
+  });
+
+  expect(sizing.contactGap).toBeLessThanOrEqual(32);
+  expect(sizing.shellWidth).toBeGreaterThanOrEqual(sizing.wrapperWidth - 2);
+  expect(sizing.shellBorder).toBe('0px');
+  expect(sizing.shellGlow).toContain('rgba(92, 255, 177, 0.04)');
+  expect(sizing.beforeGlow).toContain('rgba(92, 255, 177, 0.07)');
+  expect(sizing.beforeGlow).toContain('rgba(101, 231, 255, 0.035)');
+  expect(Number.parseFloat(sizing.beforeOpacity)).toBeLessThanOrEqual(0.5);
+  expect(sizing.afterGlow).toMatch(/rgba\(92, 255, 177, 0\.02[45]\)/);
+  expect(sizing.outputHeight).toBeLessThan(sizing.outputWidth * 0.72);
+});
+
+test('ascii torus render fills the terminal with a larger symbol donut', async ({ page }) => {
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const artifact = page.locator('#ascii-torus');
+  await artifact.scrollIntoViewIfNeeded();
+  await expect(artifact).toHaveAttribute('data-torus-reveal', 'complete', { timeout: 2500 });
+
+  const bounds = await artifact.locator('[data-ascii-torus-output]').evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const lines = element.textContent.split('\n');
+    const occupied = [];
+    lines.forEach((line, row) => {
+      [...line].forEach((char, column) => {
+        if (char !== ' ') {
+          occupied.push({ row, column });
+        }
+      });
+    });
+
+    return {
+      boxWidth: rect.width,
+      boxHeight: rect.height,
+      width: Math.max(...occupied.map((point) => point.column)) - Math.min(...occupied.map((point) => point.column)) + 1,
+      height: Math.max(...occupied.map((point) => point.row)) - Math.min(...occupied.map((point) => point.row)) + 1,
+    };
+  });
+
+  expect(bounds.boxHeight).toBeGreaterThanOrEqual(430);
+  expect(bounds.width).toBeGreaterThanOrEqual(49);
+  expect(bounds.height).toBeGreaterThanOrEqual(21);
+});
+
+test('ascii torus symbols are typed in when its reveal triggers', async ({ page }) => {
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const artifact = page.locator('#ascii-torus');
+  const output = artifact.locator('[data-ascii-torus-output]');
+
+  await expect(artifact).not.toHaveClass(/matrix-revealed/);
+  await expect(output).toHaveText(/^\s*$/);
+
+  await artifact.scrollIntoViewIfNeeded();
+  await expect(artifact).toHaveClass(/matrix-revealed/);
+  await expect(artifact).toHaveAttribute('data-torus-reveal', 'running');
+  await expect(output).toContainText(/[.@#$*+=:;~\-_/<>01]{12,}/);
+  await expect(artifact).toHaveAttribute('data-torus-reveal', 'complete', { timeout: 2500 });
+});
+
+test('ascii torus render keeps breathing room inside its symbol buffer', async ({ page }) => {
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const artifact = page.locator('#ascii-torus');
+  await artifact.scrollIntoViewIfNeeded();
+
+  const margins = await artifact.locator('[data-ascii-torus-output]').evaluate((element) => {
+    const lines = element.textContent.split('\n');
+    const occupied = [];
+    lines.forEach((line, row) => {
+      [...line].forEach((char, column) => {
+        if (char !== ' ') {
+          occupied.push({ row, column });
+        }
+      });
+    });
+
+    const width = Math.max(...lines.map((line) => line.length));
+    const height = lines.length;
+    const minColumn = Math.min(...occupied.map((point) => point.column));
+    const maxColumn = Math.max(...occupied.map((point) => point.column));
+    const minRow = Math.min(...occupied.map((point) => point.row));
+    const maxRow = Math.max(...occupied.map((point) => point.row));
+
+    return {
+      left: minColumn,
+      right: width - maxColumn - 1,
+      top: minRow,
+      bottom: height - maxRow - 1,
+    };
+  });
+
+  expect(margins.left).toBeGreaterThanOrEqual(3);
+  expect(margins.right).toBeGreaterThanOrEqual(3);
+  expect(margins.top).toBeGreaterThanOrEqual(2);
+  expect(margins.bottom).toBeGreaterThanOrEqual(2);
+});
+
+test('ascii torus projection never clips points outside the symbol buffer', async ({ page }) => {
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const artifact = page.locator('#ascii-torus');
+  await artifact.scrollIntoViewIfNeeded();
+
+  await expect(artifact).toHaveAttribute('data-torus-clipped-points', '0');
+});
+
+test('ascii torus keeps buffer margins after drift and manual rotation', async ({ page }) => {
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const artifact = page.locator('#ascii-torus');
+  const shell = artifact.locator('.ascii-torus-shell');
+  await disableSmoothScroll(page);
+  const scrollY = await artifact.evaluate((element) => {
+    const top = element.getBoundingClientRect().top + window.scrollY;
+    return Math.max(0, top - 96);
+  });
+  await jumpToScrollY(page, scrollY);
+  await expect(artifact).toHaveClass(/matrix-reveal-settled/);
+
+  const box = await shell.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.68);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.18, { steps: 14 });
+  await page.mouse.move(box.x + box.width * 0.78, box.y + box.height * 0.18, { steps: 14 });
+  await page.mouse.up();
+  await page.waitForTimeout(420);
+
+  const margins = await artifact.locator('[data-ascii-torus-output]').evaluate((element) => {
+    const lines = element.textContent.split('\n');
+    const occupied = [];
+    lines.forEach((line, row) => {
+      [...line].forEach((char, column) => {
+        if (char !== ' ') {
+          occupied.push({ row, column });
+        }
+      });
+    });
+
+    const width = Math.max(...lines.map((line) => line.length));
+    const height = lines.length;
+    const minColumn = Math.min(...occupied.map((point) => point.column));
+    const maxColumn = Math.max(...occupied.map((point) => point.column));
+    const minRow = Math.min(...occupied.map((point) => point.row));
+    const maxRow = Math.max(...occupied.map((point) => point.row));
+
+    return {
+      left: minColumn,
+      right: width - maxColumn - 1,
+      top: minRow,
+      bottom: height - maxRow - 1,
+    };
+  });
+
+  expect(margins.left).toBeGreaterThanOrEqual(2);
+  expect(margins.right).toBeGreaterThanOrEqual(2);
+  expect(margins.top).toBeGreaterThanOrEqual(2);
+  expect(margins.bottom).toBeGreaterThanOrEqual(2);
+});
+
+test('ascii torus drag maps pointer movement to natural trackball axes', async ({ page }) => {
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const artifact = page.locator('#ascii-torus');
+  const shell = artifact.locator('.ascii-torus-shell');
+  await disableSmoothScroll(page);
+  const scrollY = await artifact.evaluate((element) => {
+    const top = element.getBoundingClientRect().top + window.scrollY;
+    return Math.max(0, top - 96);
+  });
+  await jumpToScrollY(page, scrollY);
+  await expect(artifact).toHaveClass(/matrix-revealed/);
+  await expect(artifact).toHaveClass(/matrix-reveal-settled/);
+
+  const box = await shell.boundingBox();
+  expect(box).not.toBeNull();
+
+  const readRotation = async () =>
+    (await artifact.getAttribute('data-torus-rotation')).split(',').map((value) => Number.parseFloat(value));
+
+  const before = await readRotation();
+  await page.mouse.move(box.x + box.width * 0.36, box.y + box.height * 0.52);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.66, box.y + box.height * 0.52, { steps: 10 });
+  await page.mouse.up();
+  const afterHorizontal = await readRotation();
+
+  expect(Math.abs(afterHorizontal[1] - before[1])).toBeGreaterThan(0.35);
+  expect(afterHorizontal[1]).toBeLessThan(before[1]);
+  expect(Math.abs(afterHorizontal[0] - before[0])).toBeLessThan(0.16);
+  expect(Math.abs(afterHorizontal[2] - before[2])).toBeLessThan(0.08);
+
+  await page.mouse.move(box.x + box.width * 0.52, box.y + box.height * 0.36);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.52, box.y + box.height * 0.66, { steps: 10 });
+  await page.mouse.up();
+  const afterVertical = await readRotation();
+
+  expect(Math.abs(afterVertical[0] - afterHorizontal[0])).toBeGreaterThan(0.35);
+  expect(afterVertical[0]).toBeLessThan(afterHorizontal[0]);
+  expect(Math.abs(afterVertical[1] - afterHorizontal[1])).toBeLessThan(0.16);
+  expect(Math.abs(afterVertical[2] - afterHorizontal[2])).toBeLessThan(0.08);
+});
+
+test('ascii torus drag stays screen-relative after a half roll', async ({ page }) => {
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const artifact = page.locator('#ascii-torus');
+  const shell = artifact.locator('.ascii-torus-shell');
+  await disableSmoothScroll(page);
+  const scrollY = await artifact.evaluate((element) => {
+    const top = element.getBoundingClientRect().top + window.scrollY;
+    return Math.max(0, top - 96);
+  });
+  await jumpToScrollY(page, scrollY);
+  await expect(artifact).toHaveClass(/matrix-reveal-settled/);
+  await page.evaluate(() => window.__asciiTorusDebug.applyScreenRoll(Math.PI));
+
+  const box = await shell.boundingBox();
+  expect(box).not.toBeNull();
+
+  const readRotation = async () =>
+    (await artifact.getAttribute('data-torus-rotation')).split(',').map((value) => Number.parseFloat(value));
+
+  const before = await readRotation();
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.66);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.36, { steps: 10 });
+  await page.mouse.up();
+  const after = await readRotation();
+
+  expect(Math.abs(after[0] - before[0])).toBeGreaterThan(0.35);
+  expect(after[0]).toBeGreaterThan(before[0]);
+  expect(Math.abs(after[1] - before[1])).toBeLessThan(0.16);
 });

@@ -6,6 +6,8 @@
   const introRainContext = introRain ? introRain.getContext('2d') : null;
   const introName = document.querySelector('[data-intro-name]');
   const bootLines = document.querySelectorAll('[data-boot-text]');
+  const whoamiSection = document.getElementById('whoami');
+  const whoamiLines = document.querySelectorAll('[data-whoami-line]');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const revealGroups = [
     { selector: '.site-header', type: 'chrome' },
@@ -60,6 +62,7 @@
   let revealScrollHandler = null;
   let revealScrollTicking = false;
   let matrixFrame = 0;
+  let whoamiStarted = false;
 
   function forceTopScroll() {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -273,6 +276,9 @@
 
   function revealBlock(element, order, options = {}) {
     revealElement(element, order);
+    if (element === whoamiSection) {
+      startWhoamiTerminal();
+    }
     const isSection = element?.getAttribute('data-matrix-reveal') === 'section';
     const shouldRevealChildren =
       !isSection || !isMobileRevealMode() || options.revealChildren || element?.id === 'contact';
@@ -379,6 +385,10 @@
   }
 
   function updateProjectCardTilt(card, event) {
+    if (isMobileRevealMode()) {
+      return;
+    }
+
     window.clearTimeout(cardTiltResetTimers.get(card));
     settleMatrixReveal(card);
     const rect = card.getBoundingClientRect();
@@ -392,36 +402,45 @@
     card.dataset.cardTilt = 'active';
     card.style.setProperty('--card-cursor-x', `${(cursorX * 100).toFixed(2)}%`);
     card.style.setProperty('--card-cursor-y', `${(cursorY * 100).toFixed(2)}%`);
-    card.style.setProperty('--card-tilt-x', `${(-normalY * 10).toFixed(2)}deg`);
-    card.style.setProperty('--card-tilt-y', `${(normalX * 10).toFixed(2)}deg`);
-    card.style.setProperty('--card-shadow-x', `${(-normalX * 22).toFixed(2)}px`);
-    card.style.setProperty('--card-shadow-y', `${(-normalY * 22).toFixed(2)}px`);
-    card.style.setProperty('--card-lift-y', '-4px');
+    card.style.setProperty('--card-tilt-x', `${(-normalY * 28).toFixed(2)}deg`);
+    card.style.setProperty('--card-tilt-y', `${(normalX * 28).toFixed(2)}deg`);
+    card.style.setProperty('--card-shadow-x', `${(-normalX * 62).toFixed(2)}px`);
+    card.style.setProperty('--card-shadow-y', `${(-normalY * 62).toFixed(2)}px`);
+    card.style.setProperty('--card-lift-y', '-10px');
     card.style.setProperty('--card-lift-z', '0px');
   }
 
   function setupProjectCardTilt() {
     document.querySelectorAll('.project-card, .stack-card, .achievement-card').forEach((card) => {
       resetProjectCardTilt(card, true);
+      card.dataset.cardTouch = 'idle';
 
       if (reducedMotion) {
         return;
       }
 
       card.addEventListener('pointerenter', (event) => {
-        if (event.pointerType !== 'touch') {
+        if (event.pointerType !== 'touch' && !isMobileRevealMode()) {
           updateProjectCardTilt(card, event);
         }
       });
       card.addEventListener('pointermove', (event) => {
-        if (event.pointerType !== 'touch') {
+        if (event.pointerType !== 'touch' && !isMobileRevealMode()) {
           updateProjectCardTilt(card, event);
         }
       });
       card.addEventListener('pointerleave', () => resetProjectCardTilt(card));
       card.addEventListener('pointercancel', () => resetProjectCardTilt(card));
-      card.addEventListener('mouseenter', (event) => updateProjectCardTilt(card, event));
-      card.addEventListener('mousemove', (event) => updateProjectCardTilt(card, event));
+      card.addEventListener('mouseenter', (event) => {
+        if (!isMobileRevealMode()) {
+          updateProjectCardTilt(card, event);
+        }
+      });
+      card.addEventListener('mousemove', (event) => {
+        if (!isMobileRevealMode()) {
+          updateProjectCardTilt(card, event);
+        }
+      });
       card.addEventListener('mouseleave', () => resetProjectCardTilt(card));
     });
   }
@@ -752,6 +771,40 @@
         }, 18);
       }, 180 * lineIndex);
     });
+  }
+
+  function typeTextLine(line, text, speed) {
+    return new Promise((resolve) => {
+      let cursor = 0;
+      const timer = window.setInterval(() => {
+        line.textContent = text.slice(0, cursor);
+        cursor += 1;
+        if (cursor > text.length) {
+          window.clearInterval(timer);
+          resolve();
+        }
+      }, speed);
+    });
+  }
+
+  async function startWhoamiTerminal() {
+    if (whoamiStarted) {
+      return;
+    }
+
+    whoamiStarted = true;
+
+    if (reducedMotion) {
+      whoamiLines.forEach((line) => {
+        line.textContent = line.getAttribute('data-whoami-text') || '';
+      });
+      return;
+    }
+
+    for (const line of whoamiLines) {
+      await typeTextLine(line, line.getAttribute('data-whoami-text') || '', 7);
+      await new Promise((resolve) => window.setTimeout(resolve, 120));
+    }
   }
 
   document.querySelectorAll('a[href^="#"]').forEach((link) => {

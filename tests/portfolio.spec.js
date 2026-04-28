@@ -257,7 +257,7 @@ test('reload starts the portfolio from the top instead of restoring old scroll',
   await page.goto('/');
   await enterPortfolio(page);
 
-  await page.getByRole('button', { name: /contact command/i }).click();
+  await page.locator('.nav-links a[href="#contact"]').click();
   await expect(page.locator('#contact')).toBeInViewport();
 
   await page.reload();
@@ -269,19 +269,30 @@ test('reload starts the portfolio from the top instead of restoring old scroll',
   await expect(page.locator('.hero')).toBeInViewport();
 });
 
+test('deep links reveal the requested section after the intro', async ({ page }) => {
+  await page.goto('/#whoami');
+  await enterPortfolio(page);
+
+  await expect(page.locator('#whoami')).toBeInViewport();
+  await expect(page.locator('#whoami')).toHaveClass(/matrix-revealed/);
+  await expect
+    .poll(() => page.evaluate(() => window.location.hash))
+    .toBe('#whoami');
+});
+
 test('main sections materialize with matrix reveal as they enter view', async ({ page }) => {
   await page.goto('/');
   await enterPortfolio(page);
 
   const hero = page.locator('.hero');
   const projects = page.locator('#projects');
-  const projectCards = page.locator('#projects .project-track__item:not([data-loop-clone]) .project-card');
+  const projectCards = page.locator('#projects .project-card');
 
   await expect(hero).toHaveAttribute('data-matrix-reveal', 'hero');
   await expect(projects).toHaveAttribute('data-matrix-reveal', 'section');
   await expect(projects).not.toHaveClass(/matrix-revealed/);
 
-  await page.getByRole('button', { name: /projects command/i }).click();
+  await page.locator('.nav-links a[href="#projects"]').click();
 
   await expect(projects).toHaveClass(/matrix-revealed/);
   await expect(projectCards.first()).toHaveClass(/matrix-revealed/);
@@ -325,6 +336,8 @@ test('hero presents Artur as lostfrxks fullstack developer', async ({ page }) =>
   await expect(page.getByText(/lostfrxks/i).first()).toBeVisible();
   await expect(page.getByText(/Fullstack Developer/i).first()).toBeVisible();
   await expect(page.getByText(/Python \/ Django \/ React \/ TypeScript \/ C\+\+/i)).toBeVisible();
+  await expect(page.getByText(/TSI AUCA, 2022-2026, GPA 3\.85/i)).toBeVisible();
+  await expect(page.getByText(/AUCA TSI/i)).toHaveCount(0);
   await expect(page.getByRole('link', { name: /GitHub/i })).toBeVisible();
 });
 
@@ -332,170 +345,78 @@ test('featured projects and achievements are visible', async ({ page }) => {
   await page.goto('/');
   await enterPortfolio(page);
 
-  const originalProjects = page.locator('#projects .project-track__item:not([data-loop-clone])');
+  const projectGrid = page.locator('#projects .project-grid');
 
   await expect(page.getByRole('heading', { name: /Featured Systems/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /GUROO/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /USC/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Homy/i })).toBeVisible();
-  await expect(originalProjects.getByText(/Django, HTML, CSS,\s+JavaScript, SQLite/i)).toBeVisible();
-  await expect(originalProjects.getByText(/agent profile with avatar and metrics/i)).toBeVisible();
+  await expect(projectGrid.getByText(/Django, HTML, CSS,\s+JavaScript, SQLite/i)).toBeVisible();
+  await expect(projectGrid.getByText(/agent profile with avatar and metrics/i)).toBeVisible();
   await expect(page.getByText(/Makeathon Winner/i)).toBeVisible();
   await expect(page.getByText(/LeetCode 260\+/i)).toBeVisible();
+  await expect(page.getByRole('link', { name: /LeetCode profile: lostfrxks/i })).toHaveAttribute(
+    'href',
+    'https://leetcode.com/u/lostfrxks/'
+  );
   await expect(page.getByLabel('Signals').getByText(/ICPC NERC 2025 finalist/i)).toBeVisible();
   await expect(page.getByLabel('Signals').getByText(/GPA 3\.85/i)).toBeVisible();
 });
 
-test('featured projects use a horizontal faux 3D content scroller', async ({ page }) => {
+test('featured projects use a stable card grid without slider mechanics', async ({ page }) => {
   await page.goto('/');
   await enterPortfolio(page);
 
-  await page.getByRole('button', { name: /projects command/i }).click();
+  await page.locator('.nav-links a[href="#projects"]').click();
   await expect(page.locator('#projects')).toBeInViewport();
   await page.waitForTimeout(700);
 
-  const carousel = page.locator('[data-project-carousel]');
-  const wrapper = page.locator('#projects .project-track-wrapper');
-  const track = page.locator('#projects .project-track');
-  const scrollbar = page.locator('#projects .project-scrollbar');
-  const items = page.locator('#projects .project-track__item');
+  const grid = page.locator('#projects .project-grid');
+  const items = page.locator('#projects .project-grid__item');
 
-  await expect(wrapper).toBeVisible();
-  await expect(track).toBeVisible();
-  await expect(scrollbar).toBeVisible();
-  await expect(items).toHaveCount(15);
-  await expect(page.locator('#projects .project-track__item[data-loop-clone="true"]')).toHaveCount(10);
+  await expect(grid).toBeVisible();
+  await expect(items).toHaveCount(5);
+  await expect(page.locator('[data-project-carousel]')).toHaveCount(0);
+  await expect(page.locator('#projects .project-track')).toHaveCount(0);
+  await expect(page.locator('#projects .project-scrollbar')).toHaveCount(0);
+  await expect(page.locator('#projects [data-loop-clone="true"]')).toHaveCount(0);
   await expect(page.locator('#projects .carousel-button')).toHaveCount(0);
   await expect(page.locator('#projects .carousel-dots')).toHaveCount(0);
 
-  const scrollerState = await track.evaluate((element) => {
+  const gridState = await grid.evaluate((element) => {
     const styles = getComputedStyle(element);
-    const firstCard = element.querySelector('.project-card');
-    const firstCardStyles = getComputedStyle(firstCard);
+    const itemStates = Array.from(element.children).map((item) => {
+      const itemStyles = getComputedStyle(item);
+      return {
+        opacity: itemStyles.opacity,
+        transform: itemStyles.transform,
+      };
+    });
+
     return {
-      overflowX: styles.overflowX,
       display: styles.display,
-      scrollSnapType: styles.scrollSnapType,
-      scrollGeometry: element.dataset.scrollGeometry,
-      paddingInlineStart: Number.parseFloat(styles.paddingInlineStart),
-      scrollWidth: element.scrollWidth,
-      clientWidth: element.clientWidth,
-      scrollbarWidth: styles.scrollbarWidth,
-      firstCardPosition: firstCardStyles.position,
-      firstCardTransform: firstCardStyles.transform,
-      loopMode: element.dataset.loopMode,
-      originalCount: Number(element.dataset.originalCount),
-      loopSegmentWidth: Number(element.dataset.loopSegmentWidth),
-      scrollLeft: Math.round(element.scrollLeft),
+      gridTemplateColumns: styles.gridTemplateColumns,
+      overflowX: styles.overflowX,
+      itemStates,
     };
   });
 
-  expect(scrollerState.display).toBe('flex');
-  expect(scrollerState.overflowX).toMatch(/auto|scroll|overlay/);
-  expect(scrollerState.scrollSnapType).toContain('x');
-  expect(scrollerState.scrollGeometry).toBe('position-driven');
-  expect(scrollerState.paddingInlineStart).toBeGreaterThan(0);
-  expect(scrollerState.scrollWidth).toBeGreaterThan(scrollerState.clientWidth);
-  expect(scrollerState.scrollbarWidth).toBe('none');
-  expect(scrollerState.firstCardPosition).not.toBe('absolute');
-  expect(['none', 'matrix(1, 0, 0, 1, 0, 0)']).toContain(scrollerState.firstCardTransform);
-  expect(scrollerState.loopMode).toBe('cyclic');
-  expect(scrollerState.originalCount).toBe(5);
-  expect(scrollerState.loopSegmentWidth).toBeGreaterThan(0);
-  expect(scrollerState.scrollLeft).toBeGreaterThan(0);
-
-  await track.evaluate((element) => {
-    element.scrollTo({ left: element.clientWidth * 0.8, behavior: 'auto' });
-  });
-
-  await expect.poll(() => track.evaluate((element) => Math.round(element.scrollLeft))).toBeGreaterThan(50);
-
-  await track.evaluate((element) => {
-    const segmentStart = Number(element.dataset.loopSegmentStart);
-    const segmentWidth = Number(element.dataset.loopSegmentWidth);
-    element.scrollLeft = segmentStart + segmentWidth * 1.04;
-    element.dispatchEvent(new Event('scroll'));
-  });
-
-  await expect
-    .poll(() => carousel.evaluate((element) => Number(element.dataset.scrollProgress)))
-    .toBeLessThan(0.16);
-
-  await track.evaluate((element) => {
-    const segmentStart = Number(element.dataset.loopSegmentStart);
-    element.scrollLeft = segmentStart - 360;
-    element.dispatchEvent(new Event('scroll'));
-  });
-  await page.waitForTimeout(120);
-
-  const nearLeftBoundary = await track.evaluate((element) => ({
-    scrollLeft: Math.round(element.scrollLeft),
-    segmentStart: Number(element.dataset.loopSegmentStart),
-    segmentWidth: Number(element.dataset.loopSegmentWidth),
-  }));
-
-  expect(nearLeftBoundary.scrollLeft).toBeLessThan(nearLeftBoundary.segmentStart);
-  expect(nearLeftBoundary.scrollLeft).toBeGreaterThan(
-    nearLeftBoundary.segmentStart - nearLeftBoundary.segmentWidth / 2
-  );
-
-  await track.evaluate((element) => {
-    const segmentStart = Number(element.dataset.loopSegmentStart);
-    const segmentWidth = Number(element.dataset.loopSegmentWidth);
-    element.scrollLeft = segmentStart + segmentWidth * 1.6;
-    element.dispatchEvent(new Event('scroll'));
-  });
-
-  await expect
-    .poll(() =>
-      track.evaluate((element) => {
-        const segmentStart = Number(element.dataset.loopSegmentStart);
-        const segmentWidth = Number(element.dataset.loopSegmentWidth);
-        return element.scrollLeft >= segmentStart && element.scrollLeft < segmentStart + segmentWidth;
-      })
-    )
-    .toBe(true);
-
-  const sideAngles = await track.evaluate((element) => {
-    const center = element.getBoundingClientRect().left + element.clientWidth / 2;
-    return Array.from(element.children)
-      .map((item) => {
-        const rect = item.getBoundingClientRect();
-        const x = rect.left + rect.width / 2 - center;
-        return {
-          x,
-          rotateY: Number.parseFloat(getComputedStyle(item).getPropertyValue('--track-rotate-y')),
-        };
-      })
-      .filter((item) => Math.abs(item.x) > 120 && Math.abs(item.x) < 520)
-      .sort((a, b) => a.x - b.x);
-  });
-
-  const leftSide = sideAngles.find((item) => item.x < 0);
-  const rightSide = sideAngles.find((item) => item.x > 0);
-  expect(leftSide.rotateY).toBeGreaterThan(0);
-  expect(rightSide.rotateY).toBeLessThan(0);
-
-  const visibleItems = await track.evaluate((element) => {
-    const wrapper = element.closest('.project-track-wrapper');
-    const wrapperRect = wrapper.getBoundingClientRect();
-
-    return Array.from(element.children).filter((item) => {
-      const rect = item.getBoundingClientRect();
-      return rect.right > wrapperRect.left + 24 && rect.left < wrapperRect.right - 24;
-    }).length;
-  });
-
-  expect(visibleItems).toBe(3);
+  expect(gridState.display).toBe('grid');
+  expect(gridState.gridTemplateColumns.split(' ').length).toBeGreaterThanOrEqual(2);
+  expect(gridState.overflowX).toBe('visible');
+  for (const itemState of gridState.itemStates) {
+    expect(itemState.opacity).toBe('1');
+    expect(['none', 'matrix(1, 0, 0, 1, 0, 0)']).toContain(itemState.transform);
+  }
 });
 
 test('project cards deform into a cursor-driven 3D tilt', async ({ page }) => {
   await page.goto('/');
   await enterPortfolio(page);
 
-  await page.getByRole('button', { name: /projects command/i }).click();
+  await page.locator('.nav-links a[href="#projects"]').click();
 
-  const card = page.locator('#projects .project-track__item:not([data-loop-clone]) .project-card').first();
+  const card = page.locator('#projects .project-card').first();
   await expect(card).toHaveClass(/matrix-revealed/);
   await expect(card).toHaveAttribute('data-card-tilt', 'idle');
 
@@ -548,7 +469,7 @@ test('stack cards use the same cursor-driven 3D tilt', async ({ page }) => {
   await page.goto('/');
   await enterPortfolio(page);
 
-  await page.getByRole('button', { name: /stack command/i }).click();
+  await page.locator('.nav-links a[href="#stack"]').click();
 
   const card = page.locator('#stack .stack-card').first();
   await expect(card).toHaveClass(/matrix-revealed/);
@@ -646,12 +567,15 @@ test('achievement cards use the same cursor-driven 3D tilt', async ({ page }) =>
   expect(idleAnimationName).not.toContain('matrixMaterialize');
 });
 
-test('command controls navigate to sections without a matrix toggle button', async ({ page }) => {
+test('primary navigation uses header links without the hero command dock', async ({ page }) => {
   await page.goto('/');
   await enterPortfolio(page);
 
-  await page.getByRole('button', { name: /projects command/i }).click();
+  await page.locator('.nav-links a[href="#projects"]').click();
   await expect(page.locator('#projects')).toBeInViewport();
+  await expect(page.locator('.command-dock')).toHaveCount(0);
+  await expect(page.locator('[data-target]')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /whoami command|projects command|stack command|contact command/i })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /matrix intensity/i })).toHaveCount(0);
   await expect(page.getByText(/matrix:on/i)).toHaveCount(0);
 });
@@ -717,7 +641,8 @@ test('mobile layout keeps primary identity and actions reachable', async ({ page
   await expect(page.locator('.brand')).toBeHidden();
   await expect(page.getByRole('heading', { name: /Artur Usenov/i })).toBeVisible();
   await expect(page.getByRole('link', { name: /GitHub/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: /projects command/i })).toBeVisible();
+  await expect(page.locator('.nav-links a[href="#projects"]')).toBeVisible();
+  await expect(page.locator('.command-dock')).toHaveCount(0);
 
   const avatarBox = await page.locator('.avatar').boundingBox();
   const panelContentWidth = await page.locator('.identity-panel').evaluate((element) => {
@@ -747,11 +672,47 @@ test('mobile matrix sections reveal before they are deep in the viewport', async
   await expect(stack).toHaveClass(/matrix-revealed/);
 });
 
+test('mobile project cards reveal individually as their column items enter view', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const projects = page.locator('#projects');
+  const projectCards = page.locator('#projects .project-card');
+  await page.locator('.nav-links a[href="#projects"]').click();
+
+  await expect(projects).toHaveClass(/matrix-revealed/);
+  await expect(projectCards.first()).toHaveClass(/matrix-revealed/);
+  await expect(projectCards.nth(4)).not.toHaveClass(/matrix-revealed/);
+
+  await projectCards.nth(4).scrollIntoViewIfNeeded();
+
+  await expect(projectCards.nth(4)).toHaveClass(/matrix-revealed/);
+});
+
+test('mobile stack cards reveal one-by-one down the column', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const stack = page.locator('#stack');
+  const stackCards = page.locator('#stack .stack-card');
+  await page.locator('.nav-links a[href="#stack"]').click();
+
+  await expect(stack).toHaveClass(/matrix-revealed/);
+  await expect(stackCards.first()).toHaveClass(/matrix-revealed/);
+  await expect(stackCards.nth(4)).not.toHaveClass(/matrix-revealed/);
+
+  await stackCards.nth(4).scrollIntoViewIfNeeded();
+
+  await expect(stackCards.nth(4)).toHaveClass(/matrix-revealed/);
+});
+
 test('contact links include real email LinkedIn Telegram and Instagram profiles', async ({ page }) => {
   await page.goto('/');
   await enterPortfolio(page);
 
-  await page.getByRole('button', { name: /contact command/i }).click();
+  await page.locator('.nav-links a[href="#contact"]').click();
   await expect(page.getByRole('link', { name: /\+996 501 271 007/i })).toHaveCount(0);
   await expect(page.locator('a[href^="tel:"]')).toHaveCount(0);
   await expect(page.getByRole('link', { name: /lostfrxks@gmail\.com/i })).toHaveAttribute(

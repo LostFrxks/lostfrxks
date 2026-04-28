@@ -5,13 +5,12 @@
   const introRain = document.getElementById('intro-rain');
   const introRainContext = introRain ? introRain.getContext('2d') : null;
   const introName = document.querySelector('[data-intro-name]');
-  const commands = document.querySelectorAll('[data-target]');
   const bootLines = document.querySelectorAll('[data-boot-text]');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const revealGroups = [
     { selector: '.site-header', type: 'chrome' },
     { selector: '.hero', type: 'hero' },
-    { selector: '.terminal-window, .identity-panel, .command-dock', type: 'panel' },
+    { selector: '.terminal-window, .identity-panel', type: 'panel' },
     { selector: 'main > .section-band:not(.hero)', type: 'section' },
     {
       selector:
@@ -57,6 +56,29 @@
 
   function forceTopScroll() {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }
+
+  function getHashTarget() {
+    if (!window.location.hash || window.location.hash.length <= 1) {
+      return null;
+    }
+
+    return document.getElementById(window.location.hash.slice(1));
+  }
+
+  function isMobileRevealMode() {
+    return window.innerWidth <= 680;
+  }
+
+  function revealHashTarget() {
+    const target = getHashTarget();
+    if (!target) {
+      return false;
+    }
+
+    target.scrollIntoView({ behavior: 'auto', block: 'start' });
+    revealBlock(target, 0);
+    return true;
   }
 
   if ('scrollRestoration' in window.history) {
@@ -209,9 +231,38 @@
     children.forEach((child, index) => revealElement(child, index + 1));
   }
 
-  function revealBlock(element, order) {
+  function revealBlock(element, order, options = {}) {
     revealElement(element, order);
-    revealChildren(element);
+    const isSection = element?.getAttribute('data-matrix-reveal') === 'section';
+    if (!isSection || !isMobileRevealMode() || options.revealChildren) {
+      revealChildren(element);
+      return;
+    }
+
+    revealVisibleItems();
+  }
+
+  function revealVisibleItems() {
+    if (!revealStarted || reducedMotion || !isMobileRevealMode()) {
+      return;
+    }
+
+    const triggerLine = window.innerHeight * 0.9;
+
+    document.querySelectorAll('[data-matrix-reveal="item"]:not(.matrix-revealed)').forEach((item) => {
+      const parentSection = item.closest('[data-matrix-reveal="section"]');
+      if (parentSection && !parentSection.classList.contains('matrix-revealed')) {
+        return;
+      }
+
+      const rect = item.getBoundingClientRect();
+      const isEnteringViewport = rect.top <= triggerLine && rect.bottom >= 0;
+      if (!isEnteringViewport) {
+        return;
+      }
+
+      revealElement(item, 0);
+    });
   }
 
   function revealVisibleSections() {
@@ -237,6 +288,8 @@
         revealObserver.unobserve(section);
       }
     });
+
+    revealVisibleItems();
   }
 
   function queueRevealVisibleSections() {
@@ -329,217 +382,6 @@
       card.addEventListener('mousemove', (event) => updateProjectCardTilt(card, event));
       card.addEventListener('mouseleave', () => resetProjectCardTilt(card));
     });
-  }
-
-  function disableCloneFocus(clone) {
-    clone.dataset.loopClone = 'true';
-    clone.setAttribute('aria-hidden', 'true');
-    clone.querySelectorAll('a, button, input, select, textarea, [tabindex]').forEach((element) => {
-      element.setAttribute('tabindex', '-1');
-    });
-  }
-
-  function centeredScrollLeft(track, item) {
-    return item.offsetLeft - (track.clientWidth - item.offsetWidth) / 2;
-  }
-
-  function measureProjectLoop(track) {
-    const originalCount = Number(track.dataset.originalCount || 0);
-    const items = Array.from(track.children);
-    const firstOriginal = items[originalCount];
-    const firstAfterClone = items[originalCount * 2];
-
-    if (!firstOriginal || !firstAfterClone) {
-      return null;
-    }
-
-    const segmentStart = centeredScrollLeft(track, firstOriginal);
-    const segmentEnd = centeredScrollLeft(track, firstAfterClone);
-    const segmentWidth = segmentEnd - segmentStart;
-
-    if (segmentWidth <= 0) {
-      return null;
-    }
-
-    track.dataset.loopSegmentStart = segmentStart.toFixed(2);
-    track.dataset.loopSegmentWidth = segmentWidth.toFixed(2);
-    return { segmentStart, segmentWidth };
-  }
-
-  function updateProjectTrackGeometry(track) {
-    const trackRect = track.getBoundingClientRect();
-    const trackCenter = trackRect.left + track.clientWidth / 2;
-    const maxDistance = Math.max(track.clientWidth * 0.34, 320);
-
-    track.dataset.scrollGeometry = 'position-driven';
-
-    Array.from(track.children).forEach((item) => {
-      const itemRect = item.getBoundingClientRect();
-      const itemCenter = itemRect.left + itemRect.width / 2;
-      const normalized = Math.max(-1, Math.min(1, (itemCenter - trackCenter) / maxDistance));
-      const distance = Math.abs(normalized);
-      const rotateY = -normalized * 34;
-      const scale = 1 - distance * 0.14;
-      const opacity = 1 - distance * 0.36;
-
-      item.style.setProperty('--track-rotate-y', `${rotateY.toFixed(2)}deg`);
-      item.style.setProperty('--track-scale', scale.toFixed(3));
-      item.style.setProperty('--track-opacity', opacity.toFixed(3));
-    });
-  }
-
-  function updateProjectScrollIndicator(track, metrics) {
-    const loopMetrics = metrics || measureProjectLoop(track);
-    const carousel = track.closest('[data-project-carousel]');
-    if (!loopMetrics || !carousel) {
-      return;
-    }
-
-    const rawProgress = (track.scrollLeft - loopMetrics.segmentStart) / loopMetrics.segmentWidth;
-    const wrappedProgress = ((rawProgress % 1) + 1) % 1;
-    carousel.style.setProperty('--project-scroll-progress', wrappedProgress.toFixed(4));
-    carousel.dataset.scrollProgress = wrappedProgress.toFixed(4);
-  }
-
-  function jumpProjectTrack(track, nextScrollLeft, done) {
-    track.classList.add('is-loop-jumping');
-    track.scrollLeft = nextScrollLeft;
-    updateProjectTrackGeometry(track);
-    updateProjectScrollIndicator(track);
-    window.requestAnimationFrame(() => {
-      track.classList.remove('is-loop-jumping');
-      done?.();
-    });
-  }
-
-  function setupProjectLoopScroller() {
-    const track = document.querySelector('[data-project-track]');
-    if (!track || track.dataset.loopMode === 'cyclic') {
-      return;
-    }
-
-    const carousel = track.closest('[data-project-carousel]');
-    const scrollbar = carousel?.querySelector('[data-project-scrollbar]');
-    const originalItems = Array.from(track.querySelectorAll(':scope > .project-track__item'));
-    if (originalItems.length < 2) {
-      return;
-    }
-
-    const beforeFragment = document.createDocumentFragment();
-    const afterFragment = document.createDocumentFragment();
-
-    originalItems.forEach((item) => {
-      const beforeClone = item.cloneNode(true);
-      const afterClone = item.cloneNode(true);
-      disableCloneFocus(beforeClone);
-      disableCloneFocus(afterClone);
-      beforeFragment.appendChild(beforeClone);
-      afterFragment.appendChild(afterClone);
-    });
-
-    track.prepend(beforeFragment);
-    track.append(afterFragment);
-    track.dataset.loopMode = 'cyclic';
-    track.dataset.originalCount = String(originalItems.length);
-
-    let loopMetrics = null;
-    let isAdjustingLoop = false;
-    let scrollTicking = false;
-
-    const scrollToLoopStart = () => {
-      loopMetrics = measureProjectLoop(track);
-      if (!loopMetrics) {
-        return;
-      }
-
-      isAdjustingLoop = true;
-      updateProjectScrollIndicator(track, loopMetrics);
-      jumpProjectTrack(track, loopMetrics.segmentStart, () => {
-        isAdjustingLoop = false;
-      });
-    };
-
-    const keepInsideLoop = () => {
-      if (isAdjustingLoop) {
-        return;
-      }
-
-      loopMetrics = loopMetrics || measureProjectLoop(track);
-      if (!loopMetrics) {
-        return;
-      }
-
-      const { segmentStart, segmentWidth } = loopMetrics;
-      const lowerBoundary = segmentStart - segmentWidth * 0.5;
-      const upperBoundary = segmentStart + segmentWidth * 1.5;
-      const current = track.scrollLeft;
-      let next = current;
-
-      if (current < lowerBoundary) {
-        next = current + segmentWidth;
-      } else if (current > upperBoundary) {
-        next = current - segmentWidth;
-      }
-
-      if (next !== current) {
-        isAdjustingLoop = true;
-        jumpProjectTrack(track, next, () => {
-          isAdjustingLoop = false;
-        });
-      }
-    };
-
-    const updateLoop = () => {
-      scrollTicking = false;
-      keepInsideLoop();
-      updateProjectTrackGeometry(track);
-      updateProjectScrollIndicator(track, loopMetrics);
-    };
-
-    const queueLoopUpdate = () => {
-      if (scrollTicking) {
-        return;
-      }
-
-      scrollTicking = true;
-      window.requestAnimationFrame(updateLoop);
-    };
-
-    track.addEventListener('scroll', queueLoopUpdate, { passive: true });
-
-    if (scrollbar) {
-      const setScrollFromClientX = (clientX) => {
-        loopMetrics = loopMetrics || measureProjectLoop(track);
-        if (!loopMetrics) {
-          return;
-        }
-
-        const rect = scrollbar.getBoundingClientRect();
-        const thumbWidth = Number.parseFloat(getComputedStyle(carousel).getPropertyValue('--project-scroll-thumb-width')) || 0;
-        const usableWidth = Math.max(1, rect.width - thumbWidth);
-        const progress = Math.max(0, Math.min(1, (clientX - rect.left - thumbWidth / 2) / usableWidth));
-        track.scrollLeft = loopMetrics.segmentStart + progress * loopMetrics.segmentWidth;
-        updateProjectTrackGeometry(track);
-        updateProjectScrollIndicator(track, loopMetrics);
-      };
-
-      scrollbar.addEventListener('pointerdown', (event) => {
-        event.preventDefault();
-        scrollbar.setPointerCapture(event.pointerId);
-        setScrollFromClientX(event.clientX);
-      });
-      scrollbar.addEventListener('pointermove', (event) => {
-        if (scrollbar.hasPointerCapture(event.pointerId)) {
-          setScrollFromClientX(event.clientX);
-        }
-      });
-    }
-
-    window.addEventListener('resize', () => {
-      loopMetrics = null;
-      window.requestAnimationFrame(scrollToLoopStart);
-    });
-    window.requestAnimationFrame(scrollToLoopStart);
   }
 
   function startMatrixReveals() {
@@ -736,6 +578,7 @@
       document.body.classList.remove('site-revealing');
     }, 1200);
     bootTerminal();
+    window.requestAnimationFrame(revealHashTarget);
   }
 
   function startSiteReveal() {
@@ -808,16 +651,6 @@
     });
   }
 
-  commands.forEach((button) => {
-    button.addEventListener('click', () => {
-      const target = document.getElementById(button.dataset.target);
-      if (target) {
-        target.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
-        window.setTimeout(() => revealBlock(target, 0), reducedMotion ? 0 : 260);
-      }
-    });
-  });
-
   document.querySelectorAll('a[href^="#"]').forEach((link) => {
     link.addEventListener('click', () => {
       const id = link.getAttribute('href').slice(1);
@@ -829,7 +662,6 @@
     });
   });
 
-  setupProjectLoopScroller();
   setupMatrixReveals();
   setupProjectCardTilt();
 

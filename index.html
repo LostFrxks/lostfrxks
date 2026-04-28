@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
       rel="stylesheet"
     >
-    <link rel="stylesheet" href="styles.css?v=looping-custom-project-scrollbar-20260428">
+    <link rel="stylesheet" href="styles.css?v=mobile-item-reveal-20260428">
   </head>
   <body class="intro-active">
     <canvas id="matrix-canvas" aria-hidden="true"></canvas>
@@ -94,7 +94,7 @@
               </div>
               <div>
                 <dt>Education</dt>
-                <dd>AUCA TSI, 2022-2026, GPA 3.85</dd>
+                <dd>TSI AUCA, 2022-2026, GPA 3.85</dd>
               </div>
               <div>
                 <dt>LeetCode</dt>
@@ -106,21 +106,6 @@
               </div>
             </dl>
           </aside>
-        </div>
-
-        <div class="command-dock" aria-label="Terminal commands">
-          <button class="command-button" type="button" data-target="whoami" aria-label="whoami command">
-            <span>$</span> whoami
-          </button>
-          <button class="command-button" type="button" data-target="projects" aria-label="projects command">
-            <span>$</span> projects
-          </button>
-          <button class="command-button" type="button" data-target="stack" aria-label="stack command">
-            <span>$</span> stack
-          </button>
-          <button class="command-button" type="button" data-target="contact" aria-label="contact command">
-            <span>$</span> contact
-          </button>
         </div>
       </section>
 
@@ -153,10 +138,8 @@
             <h2 id="projects-title">Featured Systems</h2>
           </div>
 
-          <div class="project-carousel" data-project-carousel aria-label="Featured project scroller">
-            <div class="project-track-wrapper">
-              <ul class="project-track" data-project-track>
-                <li class="project-track__item">
+          <ul class="project-grid" aria-label="Featured projects">
+                <li class="project-grid__item">
                   <article class="project-card">
                     <div class="card-meta">
                       <span>status: shipped</span>
@@ -179,7 +162,7 @@
                   </article>
                 </li>
 
-                <li class="project-track__item">
+                <li class="project-grid__item">
                   <article class="project-card">
                     <div class="card-meta">
                       <span>status: active</span>
@@ -201,7 +184,7 @@
                   </article>
                 </li>
 
-                <li class="project-track__item">
+                <li class="project-grid__item">
                   <article class="project-card">
                     <div class="card-meta">
                       <span>status: built</span>
@@ -225,7 +208,7 @@
                   </article>
                 </li>
 
-                <li class="project-track__item">
+                <li class="project-grid__item">
                   <article class="project-card">
                     <div class="card-meta">
                       <span>status: prototype</span>
@@ -247,7 +230,7 @@
                   </article>
                 </li>
 
-                <li class="project-track__item">
+                <li class="project-grid__item">
                   <article class="project-card">
                     <div class="card-meta">
                       <span>status: experiment</span>
@@ -269,11 +252,6 @@
                   </article>
                 </li>
               </ul>
-            </div>
-            <div class="project-scrollbar" data-project-scrollbar aria-hidden="true">
-              <div class="project-scrollbar-thumb"></div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -327,13 +305,16 @@
             <article class="achievement-card">
               <strong>LeetCode 260+</strong>
               <p>Consistent algorithms and data structures practice.</p>
+              <a href="https://leetcode.com/u/lostfrxks/" target="_blank" rel="noreferrer" aria-label="LeetCode profile: lostfrxks">
+                leetcode.com/u/lostfrxks
+              </a>
             </article>
             <article class="achievement-card">
               <strong>ICPC NERC 2025 finalist</strong>
               <p>ICPC Kyrgyzstan: 9th place, III degree.</p>
             </article>
             <article class="achievement-card">
-              <strong>AUCA TSI</strong>
+              <strong>TSI AUCA</strong>
               <p>Software Engineering and Social Transformation, 2022-2026, GPA 3.85.</p>
             </article>
           </div>
@@ -349,7 +330,7 @@
           <ol class="timeline">
             <li>
               <time>2022-2026</time>
-              <span>AUCA TSI, Software Engineering and Social Transformation.</span>
+              <span>TSI AUCA, Software Engineering and Social Transformation.</span>
             </li>
             <li>
               <time>2025</time>
@@ -387,6 +368,6 @@
       </section>
     </main>
 
-    <script src="app.js?v=looping-custom-project-scrollbar-20260428"></script>
+    <script src="app.js?v=mobile-item-reveal-20260428"></script>
   </body>
 </html>

@@ -28,20 +28,27 @@
   const matrixGlyphRefreshFrames = 72;
   const matrixFrameClearAlpha = 1;
   const matrixRespawnGapMax = 18;
+  const matrixEasterEggWords = ['lostfrxks', 'G5_IS_THE_BEST', 'MISS_U'];
+  const matrixEasterEggEvery = 17;
   const introRainAlphabet = introRain ? introRain.getAttribute('data-rain-alphabet') : glyphs;
   const introNameAlphabet = '01{}[]<>/\\$#@ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const introRainNormalSpeed = 1;
   const introRainDecryptSpeed = 0.24;
   const introRainNormalGlyphRefreshFrames = 4;
-  const introRainDecryptGlyphRefreshFrames = 180;
+  const introRainDecryptGlyphRefreshFrames = matrixGlyphRefreshFrames;
   const introRainNormalTrailAlpha = 0.12;
-  const introRainDecryptTrailAlpha = 0.18;
+  const introRainDecryptTrailAlpha = matrixFrameClearAlpha;
+  const introRainSpeedEase = 0.08;
+  const introRainFocusEase = 0.032;
+  const introRainFocusSnapThreshold = 0.025;
   const revealTargets = [];
   const cardTiltResetTimers = new WeakMap();
   let columns = [];
   let introRainColumns = [];
   let introRainSpeed = introRainNormalSpeed;
   let introRainTargetSpeed = introRainNormalSpeed;
+  let introRainFocusProgress = 0;
+  let introRainTargetFocus = 0;
   let introRainFrame = 0;
   let animationId = 0;
   let introRainAnimationId = 0;
@@ -58,27 +65,8 @@
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }
 
-  function getHashTarget() {
-    if (!window.location.hash || window.location.hash.length <= 1) {
-      return null;
-    }
-
-    return document.getElementById(window.location.hash.slice(1));
-  }
-
   function isMobileRevealMode() {
     return window.innerWidth <= 680;
-  }
-
-  function revealHashTarget() {
-    const target = getHashTarget();
-    if (!target) {
-      return false;
-    }
-
-    target.scrollIntoView({ behavior: 'auto', block: 'start' });
-    revealBlock(target, 0);
-    return true;
   }
 
   if ('scrollRestoration' in window.history) {
@@ -90,16 +78,56 @@
     return alphabet[Math.floor(Math.random() * alphabet.length)];
   }
 
+  function pickEasterEggWord(index) {
+    if (index % matrixEasterEggEvery !== 0) {
+      return '';
+    }
+
+    const wordIndex = Math.floor(index / matrixEasterEggEvery) % matrixEasterEggWords.length;
+    return matrixEasterEggWords[wordIndex];
+  }
+
+  function createRainGlyphs(trailLength, word, alphabet) {
+    const glyphList = Array.from({ length: trailLength + 1 }, () => randomFromAlphabet(alphabet));
+    if (!word) {
+      return glyphList;
+    }
+
+    const start = Math.max(0, Math.floor((glyphList.length - word.length) / 2));
+    word.split('').forEach((char, index) => {
+      if (start + index < glyphList.length) {
+        glyphList[start + index] = char;
+      }
+    });
+    return glyphList;
+  }
+
+  function glyphForColumn(column, glyphIndex, alphabet) {
+    if (!column.word) {
+      column.glyphs[glyphIndex] = randomFromAlphabet(alphabet);
+      return;
+    }
+
+    const wordStart = Math.max(0, Math.floor((column.glyphs.length - column.word.length) / 2));
+    const wordIndex = glyphIndex - wordStart;
+    column.glyphs[glyphIndex] =
+      wordIndex >= 0 && wordIndex < column.word.length
+        ? column.word[wordIndex]
+        : randomFromAlphabet(alphabet);
+  }
+
   function createMatrixColumn(height, spawnAbove) {
     const trailLength = matrixTrailMin + Math.floor(Math.random() * (matrixTrailMax - matrixTrailMin + 1));
+    const word = pickEasterEggWord(columns.length);
     const y = spawnAbove
       ? -matrixColumnWidth * (trailLength + 1 + Math.floor(Math.random() * matrixRespawnGapMax))
       : Math.floor(Math.random() * height);
     return {
       y,
+      word,
       trailLength,
       refreshOffset: Math.floor(Math.random() * matrixGlyphRefreshFrames),
-      glyphs: Array.from({ length: trailLength + 1 }, () => randomFromAlphabet(glyphs)),
+      glyphs: createRainGlyphs(trailLength, word, glyphs),
     };
   }
 
@@ -121,10 +149,17 @@
     canvas.dataset.frameClearMode = 'crisp';
     canvas.dataset.frameClearAlpha = matrixFrameClearAlpha.toFixed(2);
     canvas.dataset.respawnMode = 'after-full-trail-exit';
+    canvas.dataset.easterEggWords = matrixEasterEggWords.join(',');
 
     const columnCount = Math.ceil(window.innerWidth / matrixColumnWidth);
-    columns = Array.from({ length: columnCount }, () => createMatrixColumn(window.innerHeight));
+    columns = Array.from({ length: columnCount }, (_, index) => {
+      const column = createMatrixColumn(window.innerHeight);
+      column.word = pickEasterEggWord(index);
+      column.glyphs = createRainGlyphs(column.trailLength, column.word, glyphs);
+      return column;
+    });
     canvas.dataset.trailLengths = columns.slice(0, 18).map((column) => column.trailLength).join(',');
+    window.__matrixDebug = { columns, introRainColumns };
     drawMatrixFrame(true);
   }
 
@@ -162,7 +197,7 @@
         const shouldRefreshGlyph =
           (matrixFrame + column.refreshOffset + glyphIndex * 17) % refreshFrames === 0;
         if (!column.glyphs[glyphIndex] || shouldRefreshGlyph) {
-          column.glyphs[glyphIndex] = randomFromAlphabet(alphabet);
+          glyphForColumn(column, glyphIndex, alphabet);
         }
 
         const glyph = column.glyphs[glyphIndex];
@@ -177,9 +212,14 @@
       const fullTrailExitY = window.innerHeight + (column.trailLength + 1) * columnWidth;
       if (y > fullTrailExitY) {
         columns[index] = createMatrixColumn(0, true);
+        columns[index].word = pickEasterEggWord(index);
+        columns[index].glyphs = createRainGlyphs(columns[index].trailLength, columns[index].word, alphabet);
       } else {
         column.y = y + columnWidth * rainSpeed;
       }
+    }
+    if (window.__matrixDebug) {
+      window.__matrixDebug.columns = columns;
     }
   }
 
@@ -234,7 +274,9 @@
   function revealBlock(element, order, options = {}) {
     revealElement(element, order);
     const isSection = element?.getAttribute('data-matrix-reveal') === 'section';
-    if (!isSection || !isMobileRevealMode() || options.revealChildren) {
+    const shouldRevealChildren =
+      !isSection || !isMobileRevealMode() || options.revealChildren || element?.id === 'contact';
+    if (shouldRevealChildren) {
       revealChildren(element);
       return;
     }
@@ -435,11 +477,18 @@
     return randomFromAlphabet(introRainAlphabet);
   }
 
-  function createIntroRainColumn(height) {
+  function createIntroRainColumn(height, spawnAbove, index = introRainColumns.length) {
+    const trailLength = matrixTrailMin + Math.floor(Math.random() * (matrixTrailMax - matrixTrailMin + 1));
+    const word = pickEasterEggWord(index);
+    const y = spawnAbove
+      ? -matrixColumnWidth * (trailLength + 1 + Math.floor(Math.random() * matrixRespawnGapMax))
+      : Math.floor(Math.random() * height);
     return {
-      y: Math.floor(Math.random() * height),
-      glyph: randomRainChar(),
-      refreshOffset: Math.floor(Math.random() * introRainDecryptGlyphRefreshFrames),
+      y,
+      word,
+      trailLength,
+      refreshOffset: Math.floor(Math.random() * matrixGlyphRefreshFrames),
+      glyphs: createRainGlyphs(trailLength, word, introRainAlphabet),
     };
   }
 
@@ -448,16 +497,27 @@
       return;
     }
 
+    const isDecrypting = mode === 'decrypting';
     introRainTargetSpeed = mode === 'decrypting' ? introRainDecryptSpeed : introRainNormalSpeed;
-    const refreshFrames =
-      mode === 'decrypting' ? introRainDecryptGlyphRefreshFrames : introRainNormalGlyphRefreshFrames;
-    const trailAlpha =
-      mode === 'decrypting' ? introRainDecryptTrailAlpha : introRainNormalTrailAlpha;
+    introRainTargetFocus = isDecrypting ? 1 : 0;
+    const refreshFrames = Math.round(
+      introRainNormalGlyphRefreshFrames +
+        (introRainDecryptGlyphRefreshFrames - introRainNormalGlyphRefreshFrames) * introRainFocusProgress
+    );
+    const frameClearAlpha =
+      introRainNormalTrailAlpha +
+      (introRainDecryptTrailAlpha - introRainNormalTrailAlpha) * introRainFocusProgress;
     introRain.dataset.rainSpeedMode = mode;
     introRain.dataset.rainSpeedTarget = introRainTargetSpeed.toFixed(2);
     introRain.dataset.rainSpeedCurrent = introRainSpeed.toFixed(2);
     introRain.dataset.glyphRefreshFrames = String(refreshFrames);
-    introRain.dataset.trailAlpha = trailAlpha.toFixed(2);
+    introRain.dataset.trailAlpha = frameClearAlpha.toFixed(2);
+    introRain.dataset.trailRange = `${matrixTrailMin}-${matrixTrailMax}`;
+    introRain.dataset.easterEggWords = matrixEasterEggWords.join(',');
+    introRain.dataset.focusProgress = introRainFocusProgress.toFixed(2);
+    introRain.dataset.frameClearMode = isDecrypting ? 'focusing' : 'trail';
+    introRain.dataset.frameClearAlpha = frameClearAlpha.toFixed(2);
+    introRain.dataset.respawnMode = 'after-full-trail-exit';
   }
 
   function scrambleIntroName(lockedCount) {
@@ -489,11 +549,17 @@
     const columnWidth = matrixColumnWidth;
     introRain.dataset.fontSize = String(fontSize);
     introRain.dataset.columnWidth = String(columnWidth);
+    introRain.dataset.trailRange = `${matrixTrailMin}-${matrixTrailMax}`;
+    introRain.dataset.respawnMode = 'after-full-trail-exit';
+    introRain.dataset.easterEggWords = matrixEasterEggWords.join(',');
     const columnCount = Math.ceil(window.innerWidth / columnWidth);
     introRainColumns = Array.from(
       { length: columnCount },
-      () => createIntroRainColumn(window.innerHeight)
+      (_, index) => createIntroRainColumn(window.innerHeight, false, index)
     );
+    if (window.__matrixDebug) {
+      window.__matrixDebug.introRainColumns = introRainColumns;
+    }
     drawIntroRainFrame(true);
   }
 
@@ -504,18 +570,38 @@
 
     const fontSize = Number(introRain.dataset.fontSize || 22);
     const columnWidth = Number(introRain.dataset.columnWidth || matrixColumnWidth);
-    const refreshFrames = Number(introRain.dataset.glyphRefreshFrames || introRainNormalGlyphRefreshFrames);
-    const trailAlpha =
-      introRainTargetSpeed < introRainNormalSpeed ? introRainDecryptTrailAlpha : introRainNormalTrailAlpha;
-    introRain.dataset.trailAlpha = trailAlpha.toFixed(2);
     if (clear) {
       introRainSpeed = introRainTargetSpeed;
+      introRainFocusProgress = introRainTargetFocus;
     } else {
-      introRainSpeed += (introRainTargetSpeed - introRainSpeed) * 0.08;
+      introRainSpeed += (introRainTargetSpeed - introRainSpeed) * introRainSpeedEase;
+      introRainFocusProgress += (introRainTargetFocus - introRainFocusProgress) * introRainFocusEase;
+      if (Math.abs(introRainTargetFocus - introRainFocusProgress) < introRainFocusSnapThreshold) {
+        introRainFocusProgress = introRainTargetFocus;
+      }
     }
 
+    const refreshFrames = Math.round(
+      introRainNormalGlyphRefreshFrames +
+        (introRainDecryptGlyphRefreshFrames - introRainNormalGlyphRefreshFrames) * introRainFocusProgress
+    );
+    const frameClearAlpha =
+      introRainNormalTrailAlpha +
+      (introRainDecryptTrailAlpha - introRainNormalTrailAlpha) * introRainFocusProgress;
+    const frameClearMode =
+      introRainFocusProgress >= 1
+        ? 'crisp'
+        : introRainTargetFocus > introRainFocusProgress
+          ? 'focusing'
+          : 'trail';
+    introRain.dataset.focusProgress = introRainFocusProgress.toFixed(2);
+    introRain.dataset.glyphRefreshFrames = String(refreshFrames);
+    introRain.dataset.trailAlpha = frameClearAlpha.toFixed(2);
+    introRain.dataset.frameClearMode = frameClearMode;
+    introRain.dataset.frameClearAlpha = frameClearAlpha.toFixed(2);
     introRain.dataset.rainSpeedCurrent = introRainSpeed.toFixed(2);
-    introRainContext.fillStyle = clear ? '#020403' : `rgba(2, 4, 3, ${trailAlpha})`;
+    introRainContext.fillStyle =
+      clear || frameClearAlpha >= 1 ? '#020403' : `rgba(2, 4, 3, ${frameClearAlpha})`;
     introRainContext.fillRect(0, 0, window.innerWidth, window.innerHeight);
     introRainContext.font = `${fontSize}px JetBrains Mono, Consolas, monospace`;
     introRainContext.textBaseline = 'top';
@@ -526,19 +612,37 @@
       const x = index * columnWidth;
       const y = column.y;
 
-      if (!column.glyph || (introRainFrame + column.refreshOffset) % refreshFrames === 0) {
-        column.glyph = randomRainChar();
+      for (let segment = column.trailLength; segment >= 0; segment -= 1) {
+        const segmentY = y - segment * columnWidth;
+        if (segmentY < -columnWidth || segmentY > window.innerHeight + columnWidth) {
+          continue;
+        }
+
+        const glyphIndex = column.trailLength - segment;
+        const shouldRefreshGlyph =
+          (introRainFrame + column.refreshOffset + glyphIndex * 17) % refreshFrames === 0;
+        if (!column.glyphs[glyphIndex] || shouldRefreshGlyph) {
+          glyphForColumn(column, glyphIndex, introRainAlphabet);
+        }
+
+        const glyph = column.glyphs[glyphIndex];
+        const alpha = segment === 0 ? 1 : Math.max(0.12, 1 - segment / (column.trailLength + 1));
+        const isHighlight = segment === 0 && index % 9 === 0;
+        introRainContext.fillStyle = isHighlight
+          ? `rgba(101, 231, 255, ${alpha})`
+          : `rgba(92, 255, 177, ${alpha})`;
+        introRainContext.fillText(glyph, x, segmentY);
       }
 
-      introRainContext.fillStyle = index % 9 === 0 ? '#65e7ff' : '#5cffb1';
-      introRainContext.fillText(column.glyph, x, y);
-
-      if (y > window.innerHeight + Math.random() * 700) {
-        introRainColumns[index] = createIntroRainColumn(0);
-        introRainColumns[index].y = -columnWidth * Math.floor(Math.random() * 12);
+      const fullTrailExitY = window.innerHeight + (column.trailLength + 1) * columnWidth;
+      if (y > fullTrailExitY) {
+        introRainColumns[index] = createIntroRainColumn(0, true, index);
       } else {
         column.y = y + columnWidth * introRainSpeed;
       }
+    }
+    if (window.__matrixDebug) {
+      window.__matrixDebug.introRainColumns = introRainColumns;
     }
   }
 
@@ -578,7 +682,6 @@
       document.body.classList.remove('site-revealing');
     }, 1200);
     bootTerminal();
-    window.requestAnimationFrame(revealHashTarget);
   }
 
   function startSiteReveal() {

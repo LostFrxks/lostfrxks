@@ -162,12 +162,49 @@ test('intro rain slows down while the identity decrypts', async ({ page }) => {
 
   await expect(rainCanvas).toHaveAttribute('data-rain-speed-mode', 'decrypting');
   await expect(rainCanvas).toHaveAttribute('data-rain-speed-target', '0.24');
-  await expect(rainCanvas).toHaveAttribute('data-glyph-refresh-frames', '180');
-  await expect(rainCanvas).toHaveAttribute('data-trail-alpha', '0.18');
+  await expect(rainCanvas).toHaveAttribute('data-trail-range', '5-18');
+  await expect(rainCanvas).toHaveAttribute('data-frame-clear-mode', 'focusing');
+  await expect(rainCanvas).toHaveAttribute('data-respawn-mode', 'after-full-trail-exit');
   await page.waitForTimeout(450);
 
   const currentSpeed = Number(await rainCanvas.getAttribute('data-rain-speed-current'));
   expect(currentSpeed).toBeLessThan(0.85);
+});
+
+test('intro rain smoothly focuses from fast blurred trails into crisp decrypt rain', async ({ page }) => {
+  await page.goto('/');
+
+  const rainCanvas = page.locator('#intro-rain');
+  await expect(rainCanvas).toHaveAttribute('data-frame-clear-alpha', '0.12');
+
+  await page.getByRole('button', { name: /enter matrix intro/i }).click();
+
+  const firstFocus = await rainCanvas.evaluate((canvas) => ({
+    alpha: Number(canvas.getAttribute('data-frame-clear-alpha')),
+    focus: Number(canvas.getAttribute('data-focus-progress')),
+    refreshFrames: Number(canvas.getAttribute('data-glyph-refresh-frames')),
+  }));
+  expect(firstFocus.alpha).toBeLessThan(1);
+  expect(firstFocus.focus).toBeLessThan(0.5);
+  expect(firstFocus.refreshFrames).toBeLessThan(72);
+
+  await page.waitForTimeout(700);
+
+  const laterFocus = await rainCanvas.evaluate((canvas) => ({
+    alpha: Number(canvas.getAttribute('data-frame-clear-alpha')),
+    focus: Number(canvas.getAttribute('data-focus-progress')),
+    refreshFrames: Number(canvas.getAttribute('data-glyph-refresh-frames')),
+    mode: canvas.getAttribute('data-frame-clear-mode'),
+  }));
+  expect(laterFocus.alpha).toBeGreaterThan(firstFocus.alpha);
+  expect(laterFocus.focus).toBeGreaterThan(firstFocus.focus);
+  expect(laterFocus.focus).toBeLessThan(0.8);
+  expect(laterFocus.refreshFrames).toBeGreaterThan(firstFocus.refreshFrames);
+  expect(laterFocus.mode).toBe('focusing');
+
+  await expect(rainCanvas).toHaveAttribute('data-frame-clear-mode', 'crisp', { timeout: 2500 });
+  await expect(rainCanvas).toHaveAttribute('data-frame-clear-alpha', '1.00');
+  await expect(rainCanvas).toHaveAttribute('data-glyph-refresh-frames', '72');
 });
 
 test('intro exits through a reveal transition instead of a hard cut', async ({ page }) => {
@@ -269,12 +306,13 @@ test('reload starts the portfolio from the top instead of restoring old scroll',
   await expect(page.locator('.hero')).toBeInViewport();
 });
 
-test('deep links reveal the requested section after the intro', async ({ page }) => {
+test('hash links do not force-scroll the intro into a section', async ({ page }) => {
   await page.goto('/#whoami');
   await enterPortfolio(page);
+  await page.waitForTimeout(600);
 
-  await expect(page.locator('#whoami')).toBeInViewport();
-  await expect(page.locator('#whoami')).toHaveClass(/matrix-revealed/);
+  await expect(page.locator('.hero')).toBeInViewport();
+  await expect(page.locator('#whoami')).not.toBeInViewport();
   await expect
     .poll(() => page.evaluate(() => window.location.hash))
     .toBe('#whoami');
@@ -633,6 +671,24 @@ test('main matrix background matches the intro rain style and draws visible pixe
   expect(hasPixels).toBe(true);
 });
 
+test('matrix rain includes rare vertical easter egg words', async ({ page }) => {
+  await page.goto('/');
+
+  const expectedWords = ['lostfrxks', 'G5_IS_THE_BEST', 'MISS_U'];
+  const matrixCanvas = page.locator('#matrix-canvas');
+  const introCanvas = page.locator('#intro-rain');
+
+  await expect(matrixCanvas).toHaveAttribute('data-easter-egg-words', expectedWords.join(','));
+  await expect(introCanvas).toHaveAttribute('data-easter-egg-words', expectedWords.join(','));
+
+  const sample = await matrixCanvas.evaluate((canvas) => {
+    const columns = window.__matrixDebug?.columns || [];
+    return columns.some((column) => column.word && column.glyphs.join('').includes(column.word));
+  });
+
+  expect(sample).toBe(true);
+});
+
 test('mobile layout keeps primary identity and actions reachable', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
@@ -723,6 +779,23 @@ test('mobile stack cards reveal one-by-one down the column', async ({ page }) =>
   await stackCards.nth(4).scrollIntoViewIfNeeded();
 
   await expect(stackCards.nth(4)).toHaveClass(/matrix-revealed/);
+});
+
+test('mobile contact actions reveal with the final contact section', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const contact = page.locator('#contact');
+  const firstContactAction = page.locator('#contact .contact-actions a').first();
+  const scrollY = await contact.evaluate((element) => {
+    const top = element.getBoundingClientRect().top + window.scrollY;
+    return Math.max(0, top - window.innerHeight + 96);
+  });
+  await page.evaluate((y) => window.scrollTo(0, y), scrollY);
+
+  await expect(contact).toHaveClass(/matrix-revealed/);
+  await expect(firstContactAction).toHaveClass(/matrix-revealed/);
 });
 
 test('contact links include real email LinkedIn Telegram and Instagram profiles', async ({ page }) => {

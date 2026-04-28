@@ -247,7 +247,7 @@
       return;
     }
 
-    const triggerLine = window.innerHeight * 0.9;
+    const triggerLine = window.innerHeight * 0.7;
 
     document.querySelectorAll('[data-matrix-reveal="item"]:not(.matrix-revealed)').forEach((item) => {
       const parentSection = item.closest('[data-matrix-reveal="section"]');

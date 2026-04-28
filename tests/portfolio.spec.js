@@ -685,6 +685,23 @@ test('mobile project cards reveal individually as their column items enter view'
   await expect(projectCards.first()).toHaveClass(/matrix-revealed/);
   await expect(projectCards.nth(4)).not.toHaveClass(/matrix-revealed/);
 
+  const almostVisibleScrollY = await projectCards.nth(1).evaluate((element) => {
+    const top = element.getBoundingClientRect().top + window.scrollY;
+    return Math.max(0, top - window.innerHeight * 0.82);
+  });
+  await page.evaluate((y) => window.scrollTo(0, y), almostVisibleScrollY);
+  await page.waitForTimeout(220);
+
+  await expect(projectCards.nth(1)).not.toHaveClass(/matrix-revealed/);
+
+  const revealScrollY = await projectCards.nth(1).evaluate((element) => {
+    const top = element.getBoundingClientRect().top + window.scrollY;
+    return Math.max(0, top - window.innerHeight * 0.68);
+  });
+  await page.evaluate((y) => window.scrollTo(0, y), revealScrollY);
+
+  await expect(projectCards.nth(1)).toHaveClass(/matrix-revealed/);
+
   await projectCards.nth(4).scrollIntoViewIfNeeded();
 
   await expect(projectCards.nth(4)).toHaveClass(/matrix-revealed/);

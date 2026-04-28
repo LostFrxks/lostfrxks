@@ -1047,6 +1047,43 @@ test('ascii torus render fills the terminal with a larger symbol donut', async (
   expect(bounds.height).toBeGreaterThanOrEqual(21);
 });
 
+test('mobile ascii torus stays visually centered in its floating area', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const artifact = page.locator('#ascii-torus');
+  await artifact.scrollIntoViewIfNeeded();
+  await expect(artifact).toHaveAttribute('data-torus-reveal', 'complete', { timeout: 2500 });
+
+  const centering = await artifact.locator('[data-ascii-torus-output]').evaluate((element) => {
+    const lines = element.textContent.split('\n');
+    const occupied = [];
+    lines.forEach((line, row) => {
+      [...line].forEach((char, column) => {
+        if (char !== ' ') {
+          occupied.push({ row, column });
+        }
+      });
+    });
+
+    const width = Math.max(...lines.map((line) => line.length));
+    const height = lines.length;
+    const minColumn = Math.min(...occupied.map((point) => point.column));
+    const maxColumn = Math.max(...occupied.map((point) => point.column));
+    const minRow = Math.min(...occupied.map((point) => point.row));
+    const maxRow = Math.max(...occupied.map((point) => point.row));
+
+    return {
+      horizontalOffset: (minColumn + maxColumn + 1) / 2 - width / 2,
+      verticalOffset: (minRow + maxRow + 1) / 2 - height / 2,
+    };
+  });
+
+  expect(Math.abs(centering.horizontalOffset)).toBeLessThanOrEqual(1.5);
+  expect(Math.abs(centering.verticalOffset)).toBeLessThanOrEqual(1.5);
+});
+
 test('ascii torus symbols are typed in when its reveal triggers', async ({ page }) => {
   await page.goto('/');
   await enterPortfolio(page);

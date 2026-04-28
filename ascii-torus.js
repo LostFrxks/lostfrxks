@@ -135,9 +135,10 @@
       }
     }
 
+    const centeredChars = centerGlyphBuffer(chars);
     const lines = [];
     for (let row = 0; row < height; row += 1) {
-      lines.push(chars.slice(row * width, row * width + width).join(''));
+      lines.push(centeredChars.slice(row * width, row * width + width).join(''));
     }
 
     lastRenderedLines = lines;
@@ -146,6 +147,52 @@
       .map((value) => value.toFixed(3))
       .join(',');
     root.dataset.torusClippedPoints = String(clippedPoints);
+  }
+
+  function centerGlyphBuffer(chars) {
+    const occupied = [];
+    chars.forEach((char, index) => {
+      if (char !== ' ') {
+        occupied.push({
+          column: index % width,
+          row: Math.floor(index / width),
+        });
+      }
+    });
+
+    if (!occupied.length) {
+      return chars;
+    }
+
+    const minColumn = Math.min(...occupied.map((point) => point.column));
+    const maxColumn = Math.max(...occupied.map((point) => point.column));
+    const minRow = Math.min(...occupied.map((point) => point.row));
+    const maxRow = Math.max(...occupied.map((point) => point.row));
+    const shiftX = Math.round(width / 2 - (minColumn + maxColumn + 1) / 2);
+    const shiftY = Math.round(height / 2 - (minRow + maxRow + 1) / 2);
+
+    if (shiftX === 0 && shiftY === 0) {
+      return chars;
+    }
+
+    const centered = Array(width * height).fill(' ');
+    chars.forEach((char, index) => {
+      if (char === ' ') {
+        return;
+      }
+
+      const column = index % width;
+      const row = Math.floor(index / width);
+      const shiftedColumn = column + shiftX;
+      const shiftedRow = row + shiftY;
+      if (shiftedColumn < 0 || shiftedColumn >= width || shiftedRow < 0 || shiftedRow >= height) {
+        return;
+      }
+
+      centered[shiftedColumn + shiftedRow * width] = char;
+    });
+
+    return centered;
   }
 
   function maskRevealLines(lines) {

@@ -962,6 +962,10 @@ h3 {
   padding-top: 0.25rem;
 }
 
+.ascii-torus-band[hidden] {
+  display: none;
+}
+
 .ascii-torus-layout {
   display: block;
 }

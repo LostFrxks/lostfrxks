@@ -1,6 +1,6 @@
 (function () {
   const root = document.getElementById('ascii-torus');
-  if (!root) {
+  if (!root || root.hidden) {
     return;
   }
 

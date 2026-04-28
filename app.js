@@ -220,7 +220,7 @@
     }
 
     const isMobileViewport = window.innerWidth <= 680;
-    const triggerLine = window.innerHeight * (isMobileViewport ? 0.92 : 0.76);
+    const triggerLine = window.innerHeight * (isMobileViewport ? 1.08 : 0.76);
     const pageBottom =
       window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 8;
 
@@ -769,7 +769,7 @@
       if (lockedCount >= revealableCount) {
         window.clearInterval(introDecryptTimer);
         introName.textContent = finalText;
-        window.setTimeout(startSiteReveal, reducedMotion ? 180 : 700);
+        window.setTimeout(startSiteReveal, reducedMotion ? 180 : 1300);
       }
     }, reducedMotion ? 60 : 95);
   }

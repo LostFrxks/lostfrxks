@@ -31,6 +31,21 @@ test('browser title uses the lostfrxks site name', async ({ page }) => {
   await expect(page).toHaveTitle('lostfrxks');
 });
 
+test('site exposes a neon terminal favicon', async ({ page }) => {
+  await page.goto('/');
+
+  const favicon = page.locator('link[rel="icon"]');
+  await expect(favicon).toHaveAttribute('type', 'image/svg+xml');
+  await expect(favicon).toHaveAttribute('href', 'favicon.svg');
+
+  const response = await page.request.get('/favicon.svg');
+  expect(response.ok()).toBe(true);
+  const svg = await response.text();
+  expect(svg).not.toContain('01 lostfrxks');
+  expect(svg).toContain('data-terminal-underscore="true"');
+  expect(svg).toContain('#5cffb1');
+});
+
 test('matrix intro scrambles central text then decrypts into Artur identity', async ({ page }) => {
   await page.goto('/');
 
@@ -66,6 +81,46 @@ test('matrix intro scrambles central text then decrypts into Artur identity', as
   expect(immediateDecrypt).not.toBe('Artur Usenov');
   await expect(introName).toHaveText('Artur Usenov');
   await expect(page.locator('#intro-screen')).toBeHidden();
+});
+
+test('intro holds on the resolved Artur identity before revealing the portfolio', async ({ page }) => {
+  await page.goto('/');
+
+  const holdDuration = await page.evaluate(async () => {
+    const intro = document.querySelector('#intro-screen');
+    const introName = document.querySelector('[data-intro-name]');
+    const start = performance.now();
+    let finalNameAt = null;
+
+    return new Promise((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        observer.disconnect();
+        reject(new Error('Intro did not start exiting after resolving the identity.'));
+      }, 4000);
+      const observer = new MutationObserver(() => {
+        if (introName.textContent === 'Artur Usenov' && finalNameAt === null) {
+          finalNameAt = performance.now() - start;
+        }
+
+        if (intro.classList.contains('intro-exiting') && finalNameAt !== null) {
+          window.clearTimeout(timeout);
+          observer.disconnect();
+          resolve(performance.now() - start - finalNameAt);
+        }
+      });
+
+      observer.observe(document.documentElement, {
+        attributes: true,
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+      intro.click();
+    });
+  });
+
+  expect(holdDuration).toBeGreaterThanOrEqual(1200);
+  expect(holdDuration).toBeLessThan(1500);
 });
 
 test('intro rain matches the main matrix background style without a boxed content panel', async ({ page }) => {

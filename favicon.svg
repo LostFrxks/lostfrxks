@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="lostfrxks terminal favicon">
+  <defs>
+    <radialGradient id="screen-glow" cx="50%" cy="44%" r="68%">
+      <stop offset="0%" stop-color="#123d2a"/>
+      <stop offset="58%" stop-color="#06120d"/>
+      <stop offset="100%" stop-color="#010302"/>
+    </radialGradient>
+    <filter id="neon" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur stdDeviation="1.7" result="blur"/>
+      <feFlood flood-color="#5cffb1" flood-opacity="0.9"/>
+      <feComposite in2="blur" operator="in"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#020403"/>
+  <rect x="3" y="3" width="58" height="58" rx="12" fill="url(#screen-glow)" stroke="#123d2a" stroke-width="1.4"/>
+  <path d="M9 13h46M9 25h46M9 37h46M9 49h46" stroke="#5cffb1" stroke-opacity="0.08" stroke-width="1"/>
+  <path d="M14 18l16 14-16 14" fill="none" stroke="#5cffb1" stroke-linecap="round" stroke-linejoin="round" stroke-width="6" filter="url(#neon)"/>
+  <rect data-terminal-underscore="true" x="36" y="40" width="20" height="7" rx="1.5" fill="#5cffb1" filter="url(#neon)"/>
+</svg>

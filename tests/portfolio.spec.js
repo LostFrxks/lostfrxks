@@ -218,7 +218,7 @@ test('intro rain smoothly focuses from fast blurred trails into crisp decrypt ra
   }));
   expect(laterFocus.alpha).toBeGreaterThan(firstFocus.alpha);
   expect(laterFocus.focus).toBeGreaterThan(firstFocus.focus);
-  expect(laterFocus.focus).toBeLessThan(0.8);
+  expect(laterFocus.focus).toBeLessThan(0.95);
   expect(laterFocus.refreshFrames).toBeGreaterThan(firstFocus.refreshFrames);
   expect(laterFocus.mode).toBe('focusing');
 
@@ -422,6 +422,24 @@ test('whoami block reveals its heading before typing the right-side copy', async
   await expect(page.locator('[data-whoami-spinner]')).toHaveCount(0);
   await expect(firstParagraph).toContainText(/I am Artur Usenov/);
   await expect(secondParagraph).toContainText(/The strongest public signals/);
+});
+
+test('whoami typing reserves copy height so lower sections do not jump', async ({ page }) => {
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const whoami = page.locator('#whoami');
+  const initialWhoamiHeight = await whoami.evaluate((element) => element.offsetHeight);
+
+  await page.locator('.nav-links a[href="#whoami"]').click();
+  await expect(whoami).toHaveClass(/matrix-revealed/);
+  await expect(page.locator('[data-whoami-line="signals"]')).toContainText(
+    /The strongest public signals/,
+    { timeout: 5000 }
+  );
+  const finalWhoamiHeight = await whoami.evaluate((element) => element.offsetHeight);
+
+  expect(Math.abs(finalWhoamiHeight - initialWhoamiHeight)).toBeLessThanOrEqual(2);
 });
 
 test('boot lines are hidden until the terminal types them', async ({ page }) => {

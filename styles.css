@@ -502,6 +502,22 @@ button:focus-visible {
   font-size: 0.95rem;
 }
 
+.boot-line {
+  position: relative;
+}
+
+.boot-line::before {
+  content: attr(data-boot-text);
+  display: block;
+  visibility: hidden;
+}
+
+.boot-line [data-boot-output] {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
 .prompt-line span,
 .boot-line.ok,
 .section-kicker {
@@ -677,6 +693,22 @@ h3 {
 
 .prose-block p {
   margin: 0 0 1rem;
+}
+
+#whoami [data-whoami-line] {
+  position: relative;
+}
+
+#whoami [data-whoami-line]::before {
+  content: attr(data-whoami-text);
+  display: block;
+  visibility: hidden;
+}
+
+#whoami [data-whoami-output] {
+  position: absolute;
+  inset: 0;
+  display: block;
 }
 
 .project-grid {

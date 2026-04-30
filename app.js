@@ -54,6 +54,7 @@
   let introRainFrame = 0;
   let animationId = 0;
   let introRainAnimationId = 0;
+  let introRainLastFrameTime = 0;
   let introNameTimer = 0;
   let introDecryptTimer = 0;
   let introDismissed = false;
@@ -539,6 +540,11 @@
     introRain.dataset.respawnMode = 'after-full-trail-exit';
   }
 
+  function easeForFrameDelta(baseEase, deltaMs) {
+    const frameCount = Math.max(1, deltaMs / (1000 / 60));
+    return 1 - Math.pow(1 - baseEase, frameCount);
+  }
+
   function scrambleIntroName(lockedCount) {
     const finalText = introName.getAttribute('data-final-text') || 'Artur Usenov';
     return finalText
@@ -582,19 +588,23 @@
     drawIntroRainFrame(true);
   }
 
-  function drawIntroRainFrame(clear) {
+  function drawIntroRainFrame(clear, timestamp = performance.now()) {
     if (!introRainContext) {
       return;
     }
 
     const fontSize = Number(introRain.dataset.fontSize || 22);
     const columnWidth = Number(introRain.dataset.columnWidth || matrixColumnWidth);
+    const deltaMs = introRainLastFrameTime ? Math.min(100, timestamp - introRainLastFrameTime) : 1000 / 60;
+    introRainLastFrameTime = timestamp;
     if (clear) {
       introRainSpeed = introRainTargetSpeed;
       introRainFocusProgress = introRainTargetFocus;
     } else {
-      introRainSpeed += (introRainTargetSpeed - introRainSpeed) * introRainSpeedEase;
-      introRainFocusProgress += (introRainTargetFocus - introRainFocusProgress) * introRainFocusEase;
+      introRainSpeed +=
+        (introRainTargetSpeed - introRainSpeed) * easeForFrameDelta(introRainSpeedEase, deltaMs);
+      introRainFocusProgress +=
+        (introRainTargetFocus - introRainFocusProgress) * easeForFrameDelta(introRainFocusEase, deltaMs);
       if (Math.abs(introRainTargetFocus - introRainFocusProgress) < introRainFocusSnapThreshold) {
         introRainFocusProgress = introRainTargetFocus;
       }
@@ -665,8 +675,8 @@
     }
   }
 
-  function animateIntroRain() {
-    drawIntroRainFrame(false);
+  function animateIntroRain(timestamp) {
+    drawIntroRainFrame(false, timestamp);
     introRainAnimationId = window.requestAnimationFrame(animateIntroRain);
   }
 
@@ -754,16 +764,19 @@
 
   function bootTerminal() {
     if (reducedMotion) {
+      bootLines.forEach((line) => {
+        setBootLineText(line, line.getAttribute('data-boot-text') || '');
+      });
       return;
     }
 
     bootLines.forEach((line, lineIndex) => {
       const text = line.getAttribute('data-boot-text') || '';
-      line.textContent = '';
+      setBootLineText(line, '');
       window.setTimeout(() => {
         let cursor = 0;
         const timer = window.setInterval(() => {
-          line.textContent = text.slice(0, cursor);
+          setBootLineText(line, text.slice(0, cursor));
           cursor += 1;
           if (cursor > text.length) {
             window.clearInterval(timer);
@@ -773,11 +786,57 @@
     });
   }
 
+  function setupBootReservedLines() {
+    bootLines.forEach((line) => {
+      if (line.querySelector('[data-boot-output]')) {
+        return;
+      }
+
+      const output = document.createElement('span');
+      output.setAttribute('data-boot-output', '');
+      line.textContent = '';
+      line.append(output);
+    });
+  }
+
+  function setupWhoamiReservedLines() {
+    whoamiLines.forEach((line) => {
+      if (line.querySelector('[data-whoami-output]')) {
+        return;
+      }
+
+      const output = document.createElement('span');
+      output.setAttribute('data-whoami-output', '');
+      line.textContent = '';
+      line.append(output);
+    });
+  }
+
+  function setWhoamiLineText(line, text) {
+    const output = line.querySelector('[data-whoami-output]');
+    if (output) {
+      output.textContent = text;
+      return;
+    }
+
+    line.textContent = text;
+  }
+
+  function setBootLineText(line, text) {
+    const output = line.querySelector('[data-boot-output]');
+    if (output) {
+      output.textContent = text;
+      return;
+    }
+
+    line.textContent = text;
+  }
+
   function typeTextLine(line, text, speed) {
     return new Promise((resolve) => {
       let cursor = 0;
       const timer = window.setInterval(() => {
-        line.textContent = text.slice(0, cursor);
+        setWhoamiLineText(line, text.slice(0, cursor));
         cursor += 1;
         if (cursor > text.length) {
           window.clearInterval(timer);
@@ -796,7 +855,7 @@
 
     if (reducedMotion) {
       whoamiLines.forEach((line) => {
-        line.textContent = line.getAttribute('data-whoami-text') || '';
+        setWhoamiLineText(line, line.getAttribute('data-whoami-text') || '');
       });
       return;
     }
@@ -818,6 +877,8 @@
     });
   });
 
+  setupWhoamiReservedLines();
+  setupBootReservedLines();
   setupMatrixReveals();
   setupProjectCardTilt();
 

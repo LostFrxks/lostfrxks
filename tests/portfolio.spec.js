@@ -1,4 +1,8 @@
 const { test, expect } = require('@playwright/test');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const indexHtmlPath = path.resolve(__dirname, '..', 'index.html');
 
 function secondsFromCssTime(value) {
   const trimmed = value.trim();
@@ -64,6 +68,80 @@ test('site exposes a neon terminal favicon', async ({ page }) => {
   expect(svg).not.toContain('01 lostfrxks');
   expect(svg).toContain('data-terminal-underscore="true"');
   expect(svg).toContain('#5cffb1');
+});
+
+test('hero stack copy presents the backend and AI focus', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page.locator('.hero-stack')).toHaveText('Python / FastAPI / TypeScript / AI Systems');
+});
+
+test('hero eyebrow frames fullstack work around AI integration', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page.locator('.eyebrow')).toHaveText('Fullstack Developer // AI Integration');
+});
+
+test('hero distributes terminal content without focus cards', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page.locator('.hero-focus-grid')).toHaveCount(0);
+  await expect(page.locator('.hero-focus-card')).toHaveCount(0);
+  await expect(page.locator('.terminal-boot')).toHaveCount(1);
+  await expect(page.locator('.hero-identity')).toHaveCount(1);
+  await expect(page.locator('.hero-actions')).toHaveCount(1);
+
+  const terminalLayout = await page.locator('.terminal-content').evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      display: style.display,
+      flexDirection: style.flexDirection,
+      justifyContent: style.justifyContent,
+    };
+  });
+
+  expect(terminalLayout).toEqual({
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+  });
+});
+
+test('hero identity distributes its lines with flex spacing', async ({ page }) => {
+  await page.goto('/');
+
+  const identityLayout = await page.locator('.hero-identity').evaluate((element) => {
+    const style = getComputedStyle(element);
+    const eyebrowMargin = getComputedStyle(element.querySelector('.eyebrow')).marginTop;
+    const handleMargin = getComputedStyle(element.querySelector('.handle')).marginTop;
+    const stackMargin = getComputedStyle(element.querySelector('.hero-stack')).marginTop;
+
+    return {
+      display: style.display,
+      flexDirection: style.flexDirection,
+      justifyContent: style.justifyContent,
+      eyebrowMargin,
+      handleMargin,
+      stackMargin,
+    };
+  });
+
+  expect(identityLayout).toEqual({
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    eyebrowMargin: '0px',
+    handleMargin: '0px',
+    stackMargin: '0px',
+  });
+});
+
+test('hero stays concise without the explanatory generated-sounding copy', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page.locator('.hero-copy')).toHaveCount(0);
+  await expect(page.getByText(/I build practical fullstack systems/i)).toHaveCount(0);
+  await expect(page.getByText(/a little terminal drama/i)).toHaveCount(0);
 });
 
 test('matrix intro scrambles central text then decrypts into Artur identity', async ({ page }) => {
@@ -141,6 +219,84 @@ test('intro holds on the resolved Artur identity before revealing the portfolio'
 
   expect(holdDuration).toBeGreaterThanOrEqual(1200);
   expect(holdDuration).toBeLessThan(1500);
+});
+
+test('intro decrypts the Artur identity at a slower readable pace', async ({ page }) => {
+  await page.goto('/');
+
+  const decryptDuration = await page.evaluate(async () => {
+    const intro = document.querySelector('#intro-screen');
+    const introName = document.querySelector('[data-intro-name]');
+    const start = performance.now();
+
+    return new Promise((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        observer.disconnect();
+        reject(new Error('Intro identity did not finish decrypting.'));
+      }, 5000);
+      const observer = new MutationObserver(() => {
+        if (introName.textContent !== 'Artur Usenov') {
+          return;
+        }
+
+        window.clearTimeout(timeout);
+        observer.disconnect();
+        resolve(performance.now() - start);
+      });
+
+      observer.observe(introName, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+      intro.click();
+    });
+  });
+
+  expect(decryptDuration).toBeGreaterThanOrEqual(2200);
+  expect(decryptDuration).toBeLessThan(4200);
+});
+
+test('intro keeps unresolved cipher letters scrambling at the idle pace while decrypting', async ({ page }) => {
+  await page.goto('/');
+
+  const changes = await page.evaluate(async () => {
+    const intro = document.querySelector('#intro-screen');
+    const introName = document.querySelector('[data-intro-name]');
+    const start = performance.now();
+    const textChanges = [];
+    let previousText = introName.textContent;
+
+    return new Promise((resolve) => {
+      const timeout = window.setTimeout(() => {
+        observer.disconnect();
+        resolve(textChanges);
+      }, 850);
+      const observer = new MutationObserver(() => {
+        const nextText = introName.textContent;
+        if (nextText === previousText) {
+          return;
+        }
+
+        previousText = nextText;
+        textChanges.push({
+          time: performance.now() - start,
+          text: nextText,
+        });
+      });
+
+      observer.observe(introName, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+      intro.click();
+    });
+  });
+
+  const deltas = changes.slice(1).map((change, index) => change.time - changes[index].time);
+  expect(changes.length).toBeGreaterThanOrEqual(5);
+  expect(Math.min(...deltas)).toBeLessThan(110);
 });
 
 test('intro rain matches the main matrix background style without a boxed content panel', async ({ page }) => {
@@ -394,9 +550,9 @@ test('hero presents Artur as lostfrxks fullstack developer', async ({ page }) =>
   await expect(page.getByText(/lostfrxks/i).first()).toBeVisible();
   await expect(page.getByText(/Fullstack Developer/i).first()).toBeVisible();
   await expect(page.getByText(/Current Role/i)).toBeVisible();
-  await expect(page.getByText(/Junior Backend Developer at MDigital/i)).toBeVisible();
+  await expect(page.locator('.signal-list').getByText(/Junior Backend Developer at MDigital/i)).toBeVisible();
   await expect(page.getByText(/ship working MVPs/i)).toHaveCount(0);
-  await expect(page.getByText(/Python \/ Django \/ React \/ TypeScript \/ C\+\+/i)).toBeVisible();
+  await expect(page.getByText(/Python \/ FastAPI \/ TypeScript \/ AI Systems/i)).toBeVisible();
   await expect(page.getByText(/TSI AUCA, 2022-2026, GPA 3\.85/i)).toBeVisible();
   await expect(page.getByText(/AUCA TSI/i)).toHaveCount(0);
   await expect(page.getByRole('link', { name: /GitHub/i })).toBeVisible();
@@ -420,8 +576,8 @@ test('whoami block reveals its heading before typing the right-side copy', async
   await expect(command).toHaveText('/usr/bin/whoami');
   await expect(heading).toHaveText('Backend brain, fullstack hands.');
   await expect(page.locator('[data-whoami-spinner]')).toHaveCount(0);
-  await expect(firstParagraph).toContainText(/I am Artur Usenov/);
-  await expect(secondParagraph).toContainText(/The strongest public signals/);
+  await expect(firstParagraph).toContainText(/started taking programming seriously in college/i);
+  await expect(secondParagraph).toContainText(/MBank backend internship/i);
 });
 
 test('whoami typing reserves copy height so lower sections do not jump', async ({ page }) => {
@@ -434,12 +590,38 @@ test('whoami typing reserves copy height so lower sections do not jump', async (
   await page.locator('.nav-links a[href="#whoami"]').click();
   await expect(whoami).toHaveClass(/matrix-revealed/);
   await expect(page.locator('[data-whoami-line="signals"]')).toContainText(
-    /The strongest public signals/,
+    /MDigital/,
     { timeout: 5000 }
   );
   const finalWhoamiHeight = await whoami.evaluate((element) => element.offsetHeight);
 
   expect(Math.abs(finalWhoamiHeight - initialWhoamiHeight)).toBeLessThanOrEqual(2);
+});
+
+test('whoami copy tells a human college-to-backend story', async () => {
+  const markup = fs.readFileSync(indexHtmlPath, 'utf8');
+  const introCopy = markup.match(/data-whoami-line="intro"[\s\S]*?data-whoami-text="([^"]+)"/)?.[1] ?? '';
+  const signalsCopy = markup.match(/data-whoami-line="signals"[\s\S]*?data-whoami-text="([^"]+)"/)?.[1] ?? '';
+
+  expect(introCopy).toMatch(/started taking programming seriously in college/i);
+  expect(introCopy).toMatch(/GUROO/i);
+  expect(signalsCopy).toMatch(/ICPC Kyrgyzstan/i);
+  expect(signalsCopy).toMatch(/MDigital/i);
+  expect(`${introCopy} ${signalsCopy}`).not.toMatch(/The strongest public signals/i);
+  expect(`${introCopy} ${signalsCopy}`).not.toMatch(/turn coursework and hackathon pressure/i);
+});
+
+test('timeline starts with college and moves into backend work', async () => {
+  const markup = fs.readFileSync(indexHtmlPath, 'utf8');
+
+  expect(markup).toMatch(/<time>2023<\/time>/);
+  expect(markup).toMatch(/<time>2024<\/time>/);
+  expect(markup).toMatch(/<time>2025<\/time>/);
+  expect(markup).toMatch(/Dec 2025 - Feb 2026/i);
+  expect(markup).toMatch(/<time>2026<\/time>/);
+  expect(markup).toMatch(/Makeathon/i);
+  expect(markup).toMatch(/MDigital/i);
+  expect(markup).toMatch(/ATLAS-STORE/i);
 });
 
 test('boot lines are hidden until the terminal types them', async ({ page }) => {
@@ -490,6 +672,7 @@ test('featured projects and achievements are visible', async ({ page }) => {
   await expect(page.getByLabel('Signals').getByText(/GPA 3\.85/i)).toBeVisible();
   await expect(timeline.getByText(/Dec 2025 - Feb 2026/i)).toBeVisible();
   await expect(timeline.getByText(/MBank backend developer internship/i)).toBeVisible();
+  await expect(timeline.getByText(/Junior Backend Developer at MDigital/i)).toBeVisible();
 });
 
 test('featured projects use a stable card grid without slider mechanics', async ({ page }) => {

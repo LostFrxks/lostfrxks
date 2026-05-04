@@ -43,6 +43,8 @@
   const introRainSpeedEase = 0.08;
   const introRainFocusEase = 0.032;
   const introRainFocusSnapThreshold = 0.025;
+  const introNameScrambleInterval = 70;
+  const introNameDecryptInterval = 220;
   const revealTargets = [];
   const cardTiltResetTimers = new WeakMap();
   let columns = [];
@@ -57,6 +59,7 @@
   let introRainLastFrameTime = 0;
   let introNameTimer = 0;
   let introDecryptTimer = 0;
+  let introNameLockedIndex = 0;
   let introDismissed = false;
   let revealStarted = false;
   let revealObserver = null;
@@ -693,10 +696,11 @@
       introRainAnimationId = window.requestAnimationFrame(animateIntroRain);
     }
 
-    introName.textContent = scrambleIntroName(0);
+    introNameLockedIndex = 0;
+    introName.textContent = scrambleIntroName(introNameLockedIndex);
     introNameTimer = window.setInterval(() => {
-      introName.textContent = scrambleIntroName(0);
-    }, reducedMotion ? 500 : 70);
+      introName.textContent = scrambleIntroName(introNameLockedIndex);
+    }, reducedMotion ? 500 : introNameScrambleInterval);
   }
 
   function finishIntro() {
@@ -726,7 +730,8 @@
     const revealableCount = finalText.replaceAll(' ', '').length;
     let lockedCount = 0;
 
-    introName.textContent = scrambleIntroName(lockedCount);
+    introNameLockedIndex = 0;
+    introName.textContent = scrambleIntroName(introNameLockedIndex);
     introDecryptTimer = window.setInterval(() => {
       lockedCount += 1;
 
@@ -739,14 +744,16 @@
         targetIndex += 1;
       }
 
-      introName.textContent = scrambleIntroName(targetIndex);
+      introNameLockedIndex = targetIndex;
+      introName.textContent = scrambleIntroName(introNameLockedIndex);
 
       if (lockedCount >= revealableCount) {
+        window.clearInterval(introNameTimer);
         window.clearInterval(introDecryptTimer);
         introName.textContent = finalText;
         window.setTimeout(startSiteReveal, reducedMotion ? 180 : 1300);
       }
-    }, reducedMotion ? 60 : 95);
+    }, reducedMotion ? 60 : introNameDecryptInterval);
   }
 
   function dismissIntro() {
@@ -755,7 +762,6 @@
     }
 
     introDismissed = true;
-    window.clearInterval(introNameTimer);
     forceTopScroll();
     setIntroRainSpeedMode('decrypting');
     introScreen.classList.add('intro-revealing');

@@ -450,6 +450,8 @@ button:focus-visible {
 }
 
 .terminal-window {
+  display: flex;
+  flex-direction: column;
   min-height: 36rem;
 }
 
@@ -480,6 +482,11 @@ button:focus-visible {
 }
 
 .terminal-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.35rem;
   padding: 2rem;
 }
 
@@ -526,13 +533,26 @@ button:focus-visible {
 
 .eyebrow {
   width: fit-content;
-  margin: 2.4rem 0 0.7rem;
+  margin: 0 0 0.7rem;
   padding: 0.4rem 0.7rem;
   border: 1px solid rgba(101, 231, 255, 0.34);
   background: rgba(101, 231, 255, 0.08);
   color: var(--cyan);
   font-family: var(--mono);
   font-size: 0.86rem;
+}
+
+.hero-identity {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: clamp(13.5rem, 34vh, 16.5rem);
+}
+
+.hero-identity .eyebrow,
+.hero-identity .handle,
+.hero-identity .hero-stack {
+  margin: 0;
 }
 
 h1,
@@ -577,17 +597,9 @@ h3 {
   font-weight: 700;
 }
 
-.hero-copy {
-  max-width: 54rem;
-  margin: 1.2rem 0 0;
-  color: var(--soft);
-  font-size: 1.05rem;
-}
-
 .hero-actions {
   flex-wrap: wrap;
   gap: 0.8rem;
-  margin-top: 1.7rem;
 }
 
 .command-link,
@@ -1135,6 +1147,10 @@ h3 {
 
   .avatar {
     max-width: none;
+  }
+
+  .hero-identity {
+    min-height: clamp(12rem, 28vh, 14.5rem);
   }
 
   .project-card {

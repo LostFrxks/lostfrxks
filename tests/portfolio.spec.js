@@ -553,7 +553,7 @@ test('hero presents Artur as lostfrxks fullstack developer', async ({ page }) =>
   await expect(page.locator('.signal-list').getByText(/Junior Backend Developer at MDigital/i)).toBeVisible();
   await expect(page.getByText(/ship working MVPs/i)).toHaveCount(0);
   await expect(page.getByText(/Python \/ FastAPI \/ TypeScript \/ AI Systems/i)).toBeVisible();
-  await expect(page.getByText(/TSI AUCA, 2022-2026, GPA 3\.85/i)).toBeVisible();
+  await expect(page.getByText(/TSI AUCA, 2022-2026, GPA 3\.80/i)).toBeVisible();
   await expect(page.getByText(/AUCA TSI/i)).toHaveCount(0);
   await expect(page.getByRole('link', { name: /GitHub/i })).toBeVisible();
 });
@@ -669,7 +669,7 @@ test('featured projects and achievements are visible', async ({ page }) => {
     'https://atlas-store.kg/'
   );
   await expect(page.getByLabel('Signals').getByText(/ICPC NERC 2025 finalist/i)).toBeVisible();
-  await expect(page.getByLabel('Signals').getByText(/GPA 3\.85/i)).toBeVisible();
+  await expect(page.getByLabel('Signals').getByText(/GPA 3\.80/i)).toBeVisible();
   await expect(timeline.getByText(/Dec 2025 - Feb 2026/i)).toBeVisible();
   await expect(timeline.getByText(/MBank backend developer internship/i)).toBeVisible();
   await expect(timeline.getByText(/Junior Backend Developer at MDigital/i)).toBeVisible();

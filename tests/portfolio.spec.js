@@ -660,6 +660,12 @@ test('featured projects and achievements are visible', async ({ page }) => {
   await expect(projectGrid.getByText(/status:/i)).toHaveCount(0);
   await expect(page.getByText(/Makeathon Winner/i)).toBeVisible();
   await expect(page.getByText(/LeetCode 260\+/i)).toBeVisible();
+  await expect(page.getByText(/TSI Contest 2026 Winner/i)).toBeVisible();
+  await expect(page.getByText(/1st place in the official standings/i)).toBeVisible();
+  await expect(page.getByRole('link', { name: /TSI Contest 2026 standings/i })).toHaveAttribute(
+    'href',
+    'https://olymp.krsu.kg/conteststandings/16593'
+  );
   await expect(page.getByRole('link', { name: /LeetCode profile: lostfrxks/i })).toHaveAttribute(
     'href',
     'https://leetcode.com/u/lostfrxks/'

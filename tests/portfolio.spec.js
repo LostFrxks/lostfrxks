@@ -659,6 +659,10 @@ test('featured projects and achievements are visible', async ({ page }) => {
   await expect(projectGrid.getByText(/Django REST/i)).toBeVisible();
   await expect(projectGrid.getByText(/status:/i)).toHaveCount(0);
   await expect(page.getByText(/Makeathon Winner/i)).toBeVisible();
+  await expect(page.getByRole('link', { name: /Makeathon Instagram post/i })).toHaveAttribute(
+    'href',
+    'https://www.instagram.com/p/DCEQDdWoWb6/'
+  );
   await expect(page.getByText(/LeetCode 290\+/i)).toBeVisible();
   await expect(page.getByText(/TSI Contest 2026 Winner/i)).toBeVisible();
   await expect(page.getByText(/1st place in the official standings/i)).toBeVisible();
@@ -682,6 +686,10 @@ test('featured projects and achievements are visible', async ({ page }) => {
   );
   await expect(page.getByLabel('Signals').getByText(/ICPC NERC 2025 finalist/i)).toBeVisible();
   await expect(page.getByLabel('Signals').getByText(/GPA 3\.80/i)).toBeVisible();
+  await expect(page.getByRole('link', { name: /TSI AUCA website/i })).toHaveAttribute(
+    'href',
+    'https://tsiauca.kg'
+  );
   const signalTitles = await page.getByLabel('Signals').locator('.achievement-card strong').allTextContents();
   expect(signalTitles).toEqual([
     'Makeathon Winner',
@@ -906,7 +914,7 @@ test('achievement card links sit on the same bottom baseline', async ({ page }) 
 
   const cardsWithLinks = page.locator('.achievement-card').filter({ has: page.locator('a') });
   await cardsWithLinks.first().scrollIntoViewIfNeeded();
-  await expect(cardsWithLinks).toHaveCount(3);
+  await expect(cardsWithLinks).toHaveCount(5);
 
   const linkOffsets = await cardsWithLinks.evaluateAll((cards) =>
     cards.map((card) => {
@@ -1175,7 +1183,7 @@ test('contact links include real email LinkedIn Telegram and Instagram profiles'
     'href',
     'https://t.me/lostfrxks'
   );
-  await expect(page.getByRole('link', { name: /Instagram/i })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: /lostfrxks Instagram profile/i })).toHaveAttribute(
     'href',
     'https://www.instagram.com/lostfrxks/'
   );

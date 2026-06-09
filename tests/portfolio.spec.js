@@ -579,7 +579,7 @@ test('whoami block reveals its heading before typing the right-side copy', async
   await expect(heading).toHaveText('Backend brain, fullstack hands.');
   await expect(page.locator('[data-whoami-spinner]')).toHaveCount(0);
   await expect(firstParagraph).toContainText(/started taking programming seriously at TSI AUCA/i);
-  await expect(secondParagraph).toContainText(/three-month MBank backend internship/i);
+  await expect(secondParagraph).toContainText(/MBank software developer internship/i);
 });
 
 test('whoami typing reserves copy height so lower sections do not jump', async ({ page }) => {
@@ -612,10 +612,11 @@ test('whoami copy tells a human college-to-backend story', async () => {
   expect(introCopy).not.toMatch(/real system/i);
   expect(signalsCopy).toMatch(/Makeathon TOM/i);
   expect(signalsCopy).toMatch(/ICPC Kyrgyzstan/i);
-  expect(signalsCopy).toMatch(/three-month MBank backend internship/i);
+  expect(signalsCopy).toMatch(/MBank software developer internship/i);
   expect(signalsCopy).toMatch(/Backend Developer at MDigital/i);
   expect(signalsCopy).toMatch(/ATLAS-STORE, a custom e-commerce store/i);
   expect(signalsCopy).toMatch(/Django\/FastAPI, algorithms, and AI integrations/i);
+  expect(signalsCopy).not.toMatch(/three-month MBank backend internship/i);
   expect(signalsCopy).not.toMatch(/Homy/i);
   expect(signalsCopy).not.toMatch(/junior backend/i);
   expect(signalsCopy).not.toMatch(/TypeScript interfaces/i);
@@ -625,16 +626,22 @@ test('whoami copy tells a human college-to-backend story', async () => {
 
 test('timeline starts with college and moves into backend work', async () => {
   const markup = fs.readFileSync(indexHtmlPath, 'utf8');
+  const timelineMarkup = markup.match(/<ol class="timeline">[\s\S]*?<\/ol>/)?.[0] ?? '';
 
-  expect(markup).toMatch(/<time>2023<\/time>/);
-  expect(markup).toMatch(/<time>2024<\/time>/);
-  expect(markup).toMatch(/<time>2025<\/time>/);
-  expect(markup).toMatch(/Dec 2025 - Feb 2026/i);
-  expect(markup).toMatch(/<time>2026<\/time>/);
-  expect(markup).toMatch(/Makeathon/i);
-  expect(markup).toMatch(/MDigital/i);
-  expect(markup).toMatch(/ATLAS-STORE/i);
-  expect(markup).not.toMatch(/Homy/i);
+  expect(timelineMarkup).toMatch(/<time>2023<\/time>/);
+  expect(timelineMarkup).toMatch(/<time>2024<\/time>/);
+  expect(timelineMarkup).toMatch(/<time>2025<\/time>/);
+  expect(timelineMarkup).toMatch(/<time>Winter 2025-26<\/time>/);
+  expect(timelineMarkup).toMatch(/<time>2026<\/time>/);
+  expect(timelineMarkup).toMatch(/Makeathon/i);
+  expect(timelineMarkup).toMatch(/built website GUROO for TSI AUCA/i);
+  expect(timelineMarkup).toMatch(/Placed 9th at ICPC Kyrgyzstan/i);
+  expect(timelineMarkup).toMatch(/MDigital/i);
+  expect(timelineMarkup).toMatch(/ATLAS-STORE/i);
+  expect(timelineMarkup).toMatch(/commercial e-commerce store/i);
+  expect(timelineMarkup).not.toMatch(/Built embedding-search/i);
+  expect(timelineMarkup).not.toMatch(/electric mobility platform/i);
+  expect(timelineMarkup).not.toMatch(/Homy/i);
 });
 
 test('boot lines are hidden until the terminal types them', async ({ page }) => {
@@ -684,8 +691,9 @@ test('featured projects and achievements are visible', async ({ page }) => {
     'href',
     'https://olymp.krsu.kg/conteststandings/16593'
   );
-  await expect(page.getByText(/Mega Creeps placed 9th among 61 Kyrgyzstan teams/i)).toBeVisible();
-  await expect(page.getByText(/III degree diploma and advanced to the NERC 2025 semifinal/i)).toBeVisible();
+  await expect(page.getByText(/Placed 9th among 61 Kyrgyzstan teams and advanced to the ICPC NERC 2025 final/i)).toBeVisible();
+  await expect(page.getByText(/Mega Creeps/i)).toHaveCount(0);
+  await expect(page.getByText(/III degree diploma/i)).toHaveCount(0);
   await expect(page.getByRole('link', { name: /TSI AUCA ICPC news/i })).toHaveAttribute(
     'href',
     'https://tsiauca.kg/news/6909d751e900cf411335d90c'
@@ -712,9 +720,10 @@ test('featured projects and achievements are visible', async ({ page }) => {
     'LeetCode 290+',
     'TSI AUCA',
   ]);
-  await expect(timeline.getByText(/Dec 2025 - Feb 2026/i)).toBeVisible();
-  await expect(timeline.getByText(/MBank backend developer internship/i)).toBeVisible();
-  await expect(timeline.getByText(/Backend Developer at MDigital/i)).toBeVisible();
+  await expect(timeline.getByText(/Winter 2025-26/i)).toBeVisible();
+  await expect(timeline.getByText(/^MBank software developer internship$/i)).toBeVisible();
+  await expect(timeline.getByText(/^Backend Developer at MDigital$/i)).toBeVisible();
+  await expect(timeline.getByText(/backend-heavy fullstack work/i)).toHaveCount(0);
 });
 
 test('featured projects use a stable card grid without slider mechanics', async ({ page }) => {

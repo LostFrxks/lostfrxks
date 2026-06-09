@@ -508,9 +508,10 @@ test('main sections materialize with matrix reveal as they enter view', async ({
 
   await page.locator('.nav-links a[href="#projects"]').click();
 
+  await expect(projectCards).toHaveCount(4);
   await expect(projects).toHaveClass(/matrix-revealed/);
   await expect(projectCards.first()).toHaveClass(/matrix-revealed/);
-  await expect(projectCards.nth(4)).toHaveClass(/matrix-revealed/);
+  await expect(projectCards.last()).toHaveClass(/matrix-revealed/);
 });
 
 test('desktop matrix sections wait until they are inside the viewport before revealing', async ({ page }) => {
@@ -577,8 +578,8 @@ test('whoami block reveals its heading before typing the right-side copy', async
   await expect(command).toHaveText('/usr/bin/whoami');
   await expect(heading).toHaveText('Backend brain, fullstack hands.');
   await expect(page.locator('[data-whoami-spinner]')).toHaveCount(0);
-  await expect(firstParagraph).toContainText(/started taking programming seriously in college/i);
-  await expect(secondParagraph).toContainText(/MBank backend internship/i);
+  await expect(firstParagraph).toContainText(/started taking programming seriously at TSI AUCA/i);
+  await expect(secondParagraph).toContainText(/three-month MBank backend internship/i);
 });
 
 test('whoami typing reserves copy height so lower sections do not jump', async ({ page }) => {
@@ -604,10 +605,20 @@ test('whoami copy tells a human college-to-backend story', async () => {
   const introCopy = markup.match(/data-whoami-line="intro"[\s\S]*?data-whoami-text="([^"]+)"/)?.[1] ?? '';
   const signalsCopy = markup.match(/data-whoami-line="signals"[\s\S]*?data-whoami-text="([^"]+)"/)?.[1] ?? '';
 
-  expect(introCopy).toMatch(/started taking programming seriously in college/i);
-  expect(introCopy).toMatch(/GUROO/i);
+  expect(introCopy).toMatch(/started taking programming seriously at TSI AUCA/i);
+  expect(introCopy).toMatch(/algorithms, LeetCode, and backend projects/i);
+  expect(introCopy).not.toMatch(/GUROO/i);
+  expect(introCopy).not.toMatch(/coursework/i);
+  expect(introCopy).not.toMatch(/real system/i);
+  expect(signalsCopy).toMatch(/Makeathon TOM/i);
   expect(signalsCopy).toMatch(/ICPC Kyrgyzstan/i);
-  expect(signalsCopy).toMatch(/MDigital/i);
+  expect(signalsCopy).toMatch(/three-month MBank backend internship/i);
+  expect(signalsCopy).toMatch(/Backend Developer at MDigital/i);
+  expect(signalsCopy).toMatch(/ATLAS-STORE, a custom e-commerce store/i);
+  expect(signalsCopy).toMatch(/Django\/FastAPI, algorithms, and AI integrations/i);
+  expect(signalsCopy).not.toMatch(/Homy/i);
+  expect(signalsCopy).not.toMatch(/junior backend/i);
+  expect(signalsCopy).not.toMatch(/TypeScript interfaces/i);
   expect(`${introCopy} ${signalsCopy}`).not.toMatch(/The strongest public signals/i);
   expect(`${introCopy} ${signalsCopy}`).not.toMatch(/turn coursework and hackathon pressure/i);
 });
@@ -623,6 +634,7 @@ test('timeline starts with college and moves into backend work', async () => {
   expect(markup).toMatch(/Makeathon/i);
   expect(markup).toMatch(/MDigital/i);
   expect(markup).toMatch(/ATLAS-STORE/i);
+  expect(markup).not.toMatch(/Homy/i);
 });
 
 test('boot lines are hidden until the terminal types them', async ({ page }) => {
@@ -636,7 +648,7 @@ test('boot lines are hidden until the terminal types them', async ({ page }) => 
   await enterPortfolio(page);
 
   await expect(bootLines.first()).toHaveText('loading public profile...');
-  await expect(bootLines.nth(1)).toHaveText('mounting projects: GUROO, USC, Homy, embedding-search');
+  await expect(bootLines.nth(1)).toHaveText('mounting projects: GUROO, USC, embedding-search, ATLAS-STORE');
   await expect(bootLines.nth(2)).toHaveText('status: online');
 });
 
@@ -650,11 +662,12 @@ test('featured projects and achievements are visible', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /Featured Systems/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /GUROO/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /USC/i })).toBeVisible();
-  await expect(page.getByRole('heading', { name: /Homy/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Homy/i })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: /ATLAS-STORE/i })).toBeVisible();
   await expect(page.getByText(/mbank-voice-stand/i)).toHaveCount(0);
   await expect(projectGrid.getByText(/Django, HTML, CSS,\s+JavaScript, SQLite/i)).toBeVisible();
-  await expect(projectGrid.getByText(/agent profile with avatar and metrics/i)).toBeVisible();
+  await expect(projectGrid.getByText(/agent profile with avatar and metrics/i)).toHaveCount(0);
+  await expect(projectGrid.locator('a[href="https://github.com/LostFrxks/homy"]')).toHaveCount(0);
   await expect(projectGrid.getByText(/production e-commerce/i)).toBeVisible();
   await expect(projectGrid.getByText(/Next\.js/i)).toBeVisible();
   await expect(projectGrid.getByText(/Django REST/i)).toBeVisible();
@@ -716,7 +729,7 @@ test('featured projects use a stable card grid without slider mechanics', async 
   const items = page.locator('#projects .project-grid__item');
 
   await expect(grid).toBeVisible();
-  await expect(items).toHaveCount(5);
+  await expect(items).toHaveCount(4);
   await expect(page.locator('[data-project-carousel]')).toHaveCount(0);
   await expect(page.locator('#projects .project-track')).toHaveCount(0);
   await expect(page.locator('#projects .project-scrollbar')).toHaveCount(0);
@@ -1104,9 +1117,10 @@ test('mobile project cards reveal individually as their column items enter view'
   const projectCards = page.locator('#projects .project-card');
   await page.locator('.nav-links a[href="#projects"]').click();
 
+  await expect(projectCards).toHaveCount(4);
   await expect(projects).toHaveClass(/matrix-revealed/);
   await expect(projectCards.first()).toHaveClass(/matrix-revealed/);
-  await expect(projectCards.nth(4)).not.toHaveClass(/matrix-revealed/);
+  await expect(projectCards.last()).not.toHaveClass(/matrix-revealed/);
 
   const almostVisibleScrollY = await projectCards.nth(1).evaluate((element) => {
     const top = element.getBoundingClientRect().top + window.scrollY;
@@ -1125,9 +1139,9 @@ test('mobile project cards reveal individually as their column items enter view'
 
   await expect(projectCards.nth(1)).toHaveClass(/matrix-revealed/);
 
-  await projectCards.nth(4).scrollIntoViewIfNeeded();
+  await projectCards.last().scrollIntoViewIfNeeded();
 
-  await expect(projectCards.nth(4)).toHaveClass(/matrix-revealed/);
+  await expect(projectCards.last()).toHaveClass(/matrix-revealed/);
 });
 
 test('mobile stack cards reveal one-by-one down the column', async ({ page }) => {

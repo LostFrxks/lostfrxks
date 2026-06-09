@@ -73,7 +73,7 @@ test('site exposes a neon terminal favicon', async ({ page }) => {
 test('hero stack copy presents the backend and AI focus', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.locator('.hero-stack')).toHaveText('Python / FastAPI / TypeScript / AI Systems');
+  await expect(page.locator('.hero-stack')).toHaveText('Python / FastAPI / Algorithms / AI Systems');
 });
 
 test('hero eyebrow frames fullstack work around AI integration', async ({ page }) => {
@@ -550,9 +550,10 @@ test('hero presents Artur as lostfrxks fullstack developer', async ({ page }) =>
   await expect(page.getByText(/lostfrxks/i).first()).toBeVisible();
   await expect(page.getByText(/Fullstack Developer/i).first()).toBeVisible();
   await expect(page.getByText(/Current Role/i)).toBeVisible();
-  await expect(page.locator('.signal-list').getByText(/Junior Backend Developer at MDigital/i)).toBeVisible();
+  await expect(page.locator('.signal-list').getByText(/Backend Developer at MDigital/i)).toBeVisible();
+  await expect(page.locator('.signal-list').getByText(/Junior Backend Developer at MDigital/i)).toHaveCount(0);
   await expect(page.getByText(/ship working MVPs/i)).toHaveCount(0);
-  await expect(page.getByText(/Python \/ FastAPI \/ TypeScript \/ AI Systems/i)).toBeVisible();
+  await expect(page.getByText(/Python \/ FastAPI \/ Algorithms \/ AI Systems/i)).toBeVisible();
   await expect(page.getByText(/TSI AUCA, 2022-2026, GPA 3\.80/i)).toBeVisible();
   await expect(page.getByText(/AUCA TSI/i)).toHaveCount(0);
   await expect(page.getByRole('link', { name: /GitHub/i })).toBeVisible();
@@ -700,7 +701,7 @@ test('featured projects and achievements are visible', async ({ page }) => {
   ]);
   await expect(timeline.getByText(/Dec 2025 - Feb 2026/i)).toBeVisible();
   await expect(timeline.getByText(/MBank backend developer internship/i)).toBeVisible();
-  await expect(timeline.getByText(/Junior Backend Developer at MDigital/i)).toBeVisible();
+  await expect(timeline.getByText(/Backend Developer at MDigital/i)).toBeVisible();
 });
 
 test('featured projects use a stable card grid without slider mechanics', async ({ page }) => {

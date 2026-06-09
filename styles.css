@@ -914,6 +914,11 @@ h3 {
   background: rgba(4, 14, 11, 0.72);
 }
 
+.achievement-card {
+  display: flex;
+  flex-direction: column;
+}
+
 .stack-card {
   box-shadow: var(--shadow);
 }
@@ -936,7 +941,8 @@ h3 {
 
 .achievement-card a {
   display: inline-block;
-  margin-top: 0.75rem;
+  width: fit-content;
+  margin-top: auto;
   color: var(--green);
   font-family: var(--mono);
   font-size: 0.86rem;

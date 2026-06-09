@@ -900,6 +900,28 @@ test('achievement cards use the same cursor-driven 3D tilt', async ({ page }) =>
   expect(idleAnimationName).not.toContain('matrixMaterialize');
 });
 
+test('achievement card links sit on the same bottom baseline', async ({ page }) => {
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const cardsWithLinks = page.locator('.achievement-card').filter({ has: page.locator('a') });
+  await cardsWithLinks.first().scrollIntoViewIfNeeded();
+  await expect(cardsWithLinks).toHaveCount(3);
+
+  const linkOffsets = await cardsWithLinks.evaluateAll((cards) =>
+    cards.map((card) => {
+      const link = card.querySelector('a');
+      const cardBox = card.getBoundingClientRect();
+      const linkBox = link.getBoundingClientRect();
+      return Math.round(cardBox.bottom - linkBox.bottom);
+    })
+  );
+
+  const minOffset = Math.min(...linkOffsets);
+  const maxOffset = Math.max(...linkOffsets);
+  expect(maxOffset - minOffset).toBeLessThanOrEqual(2);
+});
+
 test('mobile cards ignore tap hover effects instead of showing sticky 3D or glow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');

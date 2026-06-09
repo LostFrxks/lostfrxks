@@ -659,12 +659,18 @@ test('featured projects and achievements are visible', async ({ page }) => {
   await expect(projectGrid.getByText(/Django REST/i)).toBeVisible();
   await expect(projectGrid.getByText(/status:/i)).toHaveCount(0);
   await expect(page.getByText(/Makeathon Winner/i)).toBeVisible();
-  await expect(page.getByText(/LeetCode 260\+/i)).toBeVisible();
+  await expect(page.getByText(/LeetCode 290\+/i)).toBeVisible();
   await expect(page.getByText(/TSI Contest 2026 Winner/i)).toBeVisible();
   await expect(page.getByText(/1st place in the official standings/i)).toBeVisible();
   await expect(page.getByRole('link', { name: /TSI Contest 2026 standings/i })).toHaveAttribute(
     'href',
     'https://olymp.krsu.kg/conteststandings/16593'
+  );
+  await expect(page.getByText(/Mega Creeps placed 9th among 61 Kyrgyzstan teams/i)).toBeVisible();
+  await expect(page.getByText(/III degree diploma and advanced to the NERC 2025 semifinal/i)).toBeVisible();
+  await expect(page.getByRole('link', { name: /TSI AUCA ICPC news/i })).toHaveAttribute(
+    'href',
+    'https://tsiauca.kg/news/6909d751e900cf411335d90c'
   );
   await expect(page.getByRole('link', { name: /LeetCode profile: lostfrxks/i })).toHaveAttribute(
     'href',
@@ -676,6 +682,14 @@ test('featured projects and achievements are visible', async ({ page }) => {
   );
   await expect(page.getByLabel('Signals').getByText(/ICPC NERC 2025 finalist/i)).toBeVisible();
   await expect(page.getByLabel('Signals').getByText(/GPA 3\.80/i)).toBeVisible();
+  const signalTitles = await page.getByLabel('Signals').locator('.achievement-card strong').allTextContents();
+  expect(signalTitles).toEqual([
+    'Makeathon Winner',
+    'ICPC NERC 2025 finalist',
+    'TSI Contest 2026 Winner',
+    'LeetCode 290+',
+    'TSI AUCA',
+  ]);
   await expect(timeline.getByText(/Dec 2025 - Feb 2026/i)).toBeVisible();
   await expect(timeline.getByText(/MBank backend developer internship/i)).toBeVisible();
   await expect(timeline.getByText(/Junior Backend Developer at MDigital/i)).toBeVisible();

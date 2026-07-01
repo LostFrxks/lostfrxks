@@ -2,8 +2,6 @@
   const canvas = document.getElementById('matrix-canvas');
   const context = canvas.getContext('2d');
   const introScreen = document.getElementById('intro-screen');
-  const introRain = document.getElementById('intro-rain');
-  const introRainContext = introRain ? introRain.getContext('2d') : null;
   const introName = document.querySelector('[data-intro-name]');
   const bootLines = document.querySelectorAll('[data-boot-text]');
   const whoamiSection = document.getElementById('whoami');
@@ -32,31 +30,15 @@
   const matrixRespawnGapMax = 18;
   const matrixEasterEggWords = ['lostfrxks', 'G5_IS_THE_BEST', 'MISS_U'];
   const matrixEasterEggEvery = 17;
-  const introRainAlphabet = introRain ? introRain.getAttribute('data-rain-alphabet') : glyphs;
   const introNameAlphabet = '01{}[]<>/\\$#@ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const introRainNormalSpeed = 1;
-  const introRainDecryptSpeed = 0.24;
-  const introRainNormalGlyphRefreshFrames = 4;
-  const introRainDecryptGlyphRefreshFrames = matrixGlyphRefreshFrames;
-  const introRainNormalTrailAlpha = 0.12;
-  const introRainDecryptTrailAlpha = matrixFrameClearAlpha;
-  const introRainSpeedEase = 0.08;
-  const introRainFocusEase = 0.032;
-  const introRainFocusSnapThreshold = 0.025;
   const introNameScrambleInterval = 70;
   const introNameDecryptInterval = 220;
+  const introNameDecryptScrambleInterval = introNameScrambleInterval;
   const revealTargets = [];
   const cardTiltResetTimers = new WeakMap();
   let columns = [];
-  let introRainColumns = [];
-  let introRainSpeed = introRainNormalSpeed;
-  let introRainTargetSpeed = introRainNormalSpeed;
-  let introRainFocusProgress = 0;
-  let introRainTargetFocus = 0;
-  let introRainFrame = 0;
   let animationId = 0;
-  let introRainAnimationId = 0;
-  let introRainLastFrameTime = 0;
+  let matrixAnimationStarted = false;
   let introNameTimer = 0;
   let introDecryptTimer = 0;
   let introNameLockedIndex = 0;
@@ -66,6 +48,7 @@
   let revealScrollHandler = null;
   let revealScrollTicking = false;
   let matrixFrame = 0;
+  let matrixRainGeneration = 0;
   let whoamiStarted = false;
 
   function forceTopScroll() {
@@ -139,14 +122,15 @@
   }
 
   function resizeCanvas() {
+    matrixRainGeneration += 1;
     const ratio = window.devicePixelRatio || 1;
     canvas.width = Math.floor(window.innerWidth * ratio);
     canvas.height = Math.floor(window.innerHeight * ratio);
     canvas.style.width = `${window.innerWidth}px`;
     canvas.style.height = `${window.innerHeight}px`;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    canvas.dataset.matrixStyle = 'intro-rain';
-    canvas.dataset.rainAlphabet = introRainAlphabet;
+    canvas.dataset.matrixStyle = 'shared-intro-main-rain';
+    canvas.dataset.rainAlphabet = glyphs;
     canvas.dataset.fontSize = String(matrixFontSize);
     canvas.dataset.columnWidth = String(matrixColumnWidth);
     canvas.dataset.rainSpeed = matrixRainSpeed.toFixed(2);
@@ -157,6 +141,12 @@
     canvas.dataset.frameClearAlpha = matrixFrameClearAlpha.toFixed(2);
     canvas.dataset.respawnMode = 'after-full-trail-exit';
     canvas.dataset.easterEggWords = matrixEasterEggWords.join(',');
+    canvas.dataset.rainGeneration = String(matrixRainGeneration);
+    canvas.dataset.animationState = matrixAnimationStarted
+      ? reducedMotion
+        ? 'reduced-motion-static'
+        : 'running'
+      : 'ready';
 
     const columnCount = Math.ceil(window.innerWidth / matrixColumnWidth);
     columns = Array.from({ length: columnCount }, (_, index) => {
@@ -166,7 +156,7 @@
       return column;
     });
     canvas.dataset.trailLengths = columns.slice(0, 18).map((column) => column.trailLength).join(',');
-    window.__matrixDebug = { columns, introRainColumns };
+    window.__matrixDebug = { columns, matrixRainGeneration };
     drawMatrixFrame(true);
   }
 
@@ -227,11 +217,28 @@
     }
     if (window.__matrixDebug) {
       window.__matrixDebug.columns = columns;
+      window.__matrixDebug.matrixRainGeneration = matrixRainGeneration;
     }
   }
 
   function animateMatrix() {
     drawMatrixFrame(false);
+    animationId = window.requestAnimationFrame(animateMatrix);
+  }
+
+  function startMatrixAnimation() {
+    if (matrixAnimationStarted) {
+      return;
+    }
+
+    matrixAnimationStarted = true;
+    canvas.dataset.animationState = reducedMotion ? 'reduced-motion-static' : 'running';
+
+    if (reducedMotion) {
+      drawMatrixFrame(true);
+      return;
+    }
+
     animationId = window.requestAnimationFrame(animateMatrix);
   }
 
@@ -496,59 +503,11 @@
     return introNameAlphabet[Math.floor(Math.random() * introNameAlphabet.length)];
   }
 
-  function randomRainChar() {
-    return randomFromAlphabet(introRainAlphabet);
+  function softDecryptChar(index, frame) {
+    return introNameAlphabet[(index * 7 + frame) % introNameAlphabet.length];
   }
 
-  function createIntroRainColumn(height, spawnAbove, index = introRainColumns.length) {
-    const trailLength = matrixTrailMin + Math.floor(Math.random() * (matrixTrailMax - matrixTrailMin + 1));
-    const word = pickEasterEggWord(index);
-    const y = spawnAbove
-      ? -matrixColumnWidth * (trailLength + 1 + Math.floor(Math.random() * matrixRespawnGapMax))
-      : Math.floor(Math.random() * height);
-    return {
-      y,
-      word,
-      trailLength,
-      refreshOffset: Math.floor(Math.random() * matrixGlyphRefreshFrames),
-      glyphs: createRainGlyphs(trailLength, word, introRainAlphabet),
-    };
-  }
-
-  function setIntroRainSpeedMode(mode) {
-    if (!introRain) {
-      return;
-    }
-
-    const isDecrypting = mode === 'decrypting';
-    introRainTargetSpeed = mode === 'decrypting' ? introRainDecryptSpeed : introRainNormalSpeed;
-    introRainTargetFocus = isDecrypting ? 1 : 0;
-    const refreshFrames = Math.round(
-      introRainNormalGlyphRefreshFrames +
-        (introRainDecryptGlyphRefreshFrames - introRainNormalGlyphRefreshFrames) * introRainFocusProgress
-    );
-    const frameClearAlpha =
-      introRainNormalTrailAlpha +
-      (introRainDecryptTrailAlpha - introRainNormalTrailAlpha) * introRainFocusProgress;
-    introRain.dataset.rainSpeedMode = mode;
-    introRain.dataset.rainSpeedTarget = introRainTargetSpeed.toFixed(2);
-    introRain.dataset.rainSpeedCurrent = introRainSpeed.toFixed(2);
-    introRain.dataset.glyphRefreshFrames = String(refreshFrames);
-    introRain.dataset.trailAlpha = frameClearAlpha.toFixed(2);
-    introRain.dataset.trailRange = `${matrixTrailMin}-${matrixTrailMax}`;
-    introRain.dataset.easterEggWords = matrixEasterEggWords.join(',');
-    introRain.dataset.focusProgress = introRainFocusProgress.toFixed(2);
-    introRain.dataset.frameClearMode = isDecrypting ? 'focusing' : 'trail';
-    introRain.dataset.frameClearAlpha = frameClearAlpha.toFixed(2);
-    introRain.dataset.respawnMode = 'after-full-trail-exit';
-  }
-
-  function easeForFrameDelta(baseEase, deltaMs) {
-    const frameCount = Math.max(1, deltaMs / (1000 / 60));
-    return 1 - Math.pow(1 - baseEase, frameCount);
-  }
-
-  function scrambleIntroName(lockedCount) {
+  function scrambleIntroName(lockedCount, mode = 'idle', frame = 0) {
     const finalText = introName.getAttribute('data-final-text') || 'Artur Usenov';
     return finalText
       .split('')
@@ -556,144 +515,18 @@
         if (char === ' ') {
           return ' ';
         }
-        return index < lockedCount ? char : randomIntroChar();
+        return index < lockedCount
+          ? char
+          : mode === 'decrypting'
+            ? softDecryptChar(index, frame)
+            : randomIntroChar();
       })
       .join('');
-  }
-
-  function resizeIntroRain() {
-    if (!introRain || !introRainContext) {
-      return;
-    }
-
-    const ratio = window.devicePixelRatio || 1;
-    introRain.width = Math.floor(window.innerWidth * ratio);
-    introRain.height = Math.floor(window.innerHeight * ratio);
-    introRain.style.width = `${window.innerWidth}px`;
-    introRain.style.height = `${window.innerHeight}px`;
-    introRainContext.setTransform(ratio, 0, 0, ratio, 0, 0);
-
-    const fontSize = matrixFontSize;
-    const columnWidth = matrixColumnWidth;
-    introRain.dataset.fontSize = String(fontSize);
-    introRain.dataset.columnWidth = String(columnWidth);
-    introRain.dataset.trailRange = `${matrixTrailMin}-${matrixTrailMax}`;
-    introRain.dataset.respawnMode = 'after-full-trail-exit';
-    introRain.dataset.easterEggWords = matrixEasterEggWords.join(',');
-    const columnCount = Math.ceil(window.innerWidth / columnWidth);
-    introRainColumns = Array.from(
-      { length: columnCount },
-      (_, index) => createIntroRainColumn(window.innerHeight, false, index)
-    );
-    if (window.__matrixDebug) {
-      window.__matrixDebug.introRainColumns = introRainColumns;
-    }
-    drawIntroRainFrame(true);
-  }
-
-  function drawIntroRainFrame(clear, timestamp = performance.now()) {
-    if (!introRainContext) {
-      return;
-    }
-
-    const fontSize = Number(introRain.dataset.fontSize || 22);
-    const columnWidth = Number(introRain.dataset.columnWidth || matrixColumnWidth);
-    const deltaMs = introRainLastFrameTime ? Math.min(100, timestamp - introRainLastFrameTime) : 1000 / 60;
-    introRainLastFrameTime = timestamp;
-    if (clear) {
-      introRainSpeed = introRainTargetSpeed;
-      introRainFocusProgress = introRainTargetFocus;
-    } else {
-      introRainSpeed +=
-        (introRainTargetSpeed - introRainSpeed) * easeForFrameDelta(introRainSpeedEase, deltaMs);
-      introRainFocusProgress +=
-        (introRainTargetFocus - introRainFocusProgress) * easeForFrameDelta(introRainFocusEase, deltaMs);
-      if (Math.abs(introRainTargetFocus - introRainFocusProgress) < introRainFocusSnapThreshold) {
-        introRainFocusProgress = introRainTargetFocus;
-      }
-    }
-
-    const refreshFrames = Math.round(
-      introRainNormalGlyphRefreshFrames +
-        (introRainDecryptGlyphRefreshFrames - introRainNormalGlyphRefreshFrames) * introRainFocusProgress
-    );
-    const frameClearAlpha =
-      introRainNormalTrailAlpha +
-      (introRainDecryptTrailAlpha - introRainNormalTrailAlpha) * introRainFocusProgress;
-    const frameClearMode =
-      introRainFocusProgress >= 1
-        ? 'crisp'
-        : introRainTargetFocus > introRainFocusProgress
-          ? 'focusing'
-          : 'trail';
-    introRain.dataset.focusProgress = introRainFocusProgress.toFixed(2);
-    introRain.dataset.glyphRefreshFrames = String(refreshFrames);
-    introRain.dataset.trailAlpha = frameClearAlpha.toFixed(2);
-    introRain.dataset.frameClearMode = frameClearMode;
-    introRain.dataset.frameClearAlpha = frameClearAlpha.toFixed(2);
-    introRain.dataset.rainSpeedCurrent = introRainSpeed.toFixed(2);
-    introRainContext.fillStyle =
-      clear || frameClearAlpha >= 1 ? '#020403' : `rgba(2, 4, 3, ${frameClearAlpha})`;
-    introRainContext.fillRect(0, 0, window.innerWidth, window.innerHeight);
-    introRainContext.font = `${fontSize}px JetBrains Mono, Consolas, monospace`;
-    introRainContext.textBaseline = 'top';
-    introRainFrame += 1;
-
-    for (let index = 0; index < introRainColumns.length; index += 1) {
-      const column = introRainColumns[index];
-      const x = index * columnWidth;
-      const y = column.y;
-
-      for (let segment = column.trailLength; segment >= 0; segment -= 1) {
-        const segmentY = y - segment * columnWidth;
-        if (segmentY < -columnWidth || segmentY > window.innerHeight + columnWidth) {
-          continue;
-        }
-
-        const glyphIndex = column.trailLength - segment;
-        const shouldRefreshGlyph =
-          (introRainFrame + column.refreshOffset + glyphIndex * 17) % refreshFrames === 0;
-        if (!column.glyphs[glyphIndex] || shouldRefreshGlyph) {
-          glyphForColumn(column, glyphIndex, introRainAlphabet);
-        }
-
-        const glyph = column.glyphs[glyphIndex];
-        const alpha = segment === 0 ? 1 : Math.max(0.12, 1 - segment / (column.trailLength + 1));
-        const isHighlight = segment === 0 && index % 9 === 0;
-        introRainContext.fillStyle = isHighlight
-          ? `rgba(101, 231, 255, ${alpha})`
-          : `rgba(92, 255, 177, ${alpha})`;
-        introRainContext.fillText(glyph, x, segmentY);
-      }
-
-      const fullTrailExitY = window.innerHeight + (column.trailLength + 1) * columnWidth;
-      if (y > fullTrailExitY) {
-        introRainColumns[index] = createIntroRainColumn(0, true, index);
-      } else {
-        column.y = y + columnWidth * introRainSpeed;
-      }
-    }
-    if (window.__matrixDebug) {
-      window.__matrixDebug.introRainColumns = introRainColumns;
-    }
-  }
-
-  function animateIntroRain(timestamp) {
-    drawIntroRainFrame(false, timestamp);
-    introRainAnimationId = window.requestAnimationFrame(animateIntroRain);
   }
 
   function startIntro() {
     if (!introScreen) {
       return;
-    }
-
-    setIntroRainSpeedMode('normal');
-    resizeIntroRain();
-    if (reducedMotion) {
-      drawIntroRainFrame(false);
-    } else {
-      introRainAnimationId = window.requestAnimationFrame(animateIntroRain);
     }
 
     introNameLockedIndex = 0;
@@ -705,9 +538,6 @@
 
   function finishIntro() {
     introScreen.classList.add('intro-hidden');
-    if (introRainAnimationId) {
-      window.cancelAnimationFrame(introRainAnimationId);
-    }
     window.clearInterval(introNameTimer);
     window.clearInterval(introDecryptTimer);
     introScreen.remove();
@@ -721,6 +551,7 @@
     introScreen.classList.add('intro-exiting');
     document.body.classList.remove('intro-active');
     document.body.classList.add('site-revealing');
+    startMatrixAnimation();
     window.setTimeout(startMatrixReveals, reducedMotion ? 0 : 260);
     window.setTimeout(finishIntro, reducedMotion ? 240 : 1350);
   }
@@ -728,12 +559,19 @@
   function decryptIntroName() {
     const finalText = introName.getAttribute('data-final-text') || 'Artur Usenov';
     const revealableCount = finalText.replaceAll(' ', '').length;
-    let lockedCount = 0;
+    const startedAt = performance.now();
+    let decryptFrame = 0;
 
+    window.clearInterval(introNameTimer);
     introNameLockedIndex = 0;
-    introName.textContent = scrambleIntroName(introNameLockedIndex);
+    introName.textContent = scrambleIntroName(introNameLockedIndex, 'decrypting', decryptFrame);
     introDecryptTimer = window.setInterval(() => {
-      lockedCount += 1;
+      decryptFrame += 1;
+      const elapsed = performance.now() - startedAt;
+      const lockedCount = Math.min(
+        revealableCount,
+        Math.floor(elapsed / introNameDecryptInterval)
+      );
 
       let targetIndex = 0;
       let nonSpaceSeen = 0;
@@ -745,15 +583,14 @@
       }
 
       introNameLockedIndex = targetIndex;
-      introName.textContent = scrambleIntroName(introNameLockedIndex);
+      introName.textContent = scrambleIntroName(introNameLockedIndex, 'decrypting', decryptFrame);
 
       if (lockedCount >= revealableCount) {
-        window.clearInterval(introNameTimer);
         window.clearInterval(introDecryptTimer);
         introName.textContent = finalText;
         window.setTimeout(startSiteReveal, reducedMotion ? 180 : 1300);
       }
-    }, reducedMotion ? 60 : introNameDecryptInterval);
+    }, reducedMotion ? 60 : introNameDecryptScrambleInterval);
   }
 
   function dismissIntro() {
@@ -763,7 +600,6 @@
 
     introDismissed = true;
     forceTopScroll();
-    setIntroRainSpeedMode('decrypting');
     introScreen.classList.add('intro-revealing');
     decryptIntroName();
   }
@@ -902,22 +738,14 @@
 
   window.addEventListener('resize', () => {
     resizeCanvas();
-    resizeIntroRain();
   });
   resizeCanvas();
 
-  if (reducedMotion) {
-    drawMatrixFrame(true);
-  } else {
-    animationId = window.requestAnimationFrame(animateMatrix);
-  }
+  startMatrixAnimation();
 
   window.addEventListener('beforeunload', () => {
     if (animationId) {
       window.cancelAnimationFrame(animationId);
-    }
-    if (introRainAnimationId) {
-      window.cancelAnimationFrame(introRainAnimationId);
     }
     window.clearInterval(introNameTimer);
     window.clearInterval(introDecryptTimer);

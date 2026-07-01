@@ -4,7 +4,7 @@
   "private": true,
   "description": "Matrix terminal portfolio for Artur Usenov / lostfrxks.",
   "scripts": {
-    "start": "serve -l 4173 .",
+    "start": "serve --listen tcp://127.0.0.1:4173 .",
     "test": "playwright test"
   },
   "devDependencies": {

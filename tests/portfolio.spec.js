@@ -194,7 +194,7 @@ test('intro holds on the resolved Artur identity before revealing the portfolio'
       const timeout = window.setTimeout(() => {
         observer.disconnect();
         reject(new Error('Intro did not start exiting after resolving the identity.'));
-      }, 4000);
+      }, 5500);
       const observer = new MutationObserver(() => {
         if (introName.textContent === 'Artur Usenov' && finalNameAt === null) {
           finalNameAt = performance.now() - start;
@@ -257,7 +257,7 @@ test('intro decrypts the Artur identity at a slower readable pace', async ({ pag
   expect(decryptDuration).toBeLessThan(4200);
 });
 
-test('intro keeps unresolved cipher letters scrambling at the idle pace while decrypting', async ({ page }) => {
+test('intro keeps cipher letters scrambling at the same fast cadence while decrypting', async ({ page }) => {
   await page.goto('/');
 
   const changes = await page.evaluate(async () => {
@@ -295,26 +295,25 @@ test('intro keeps unresolved cipher letters scrambling at the idle pace while de
   });
 
   const deltas = changes.slice(1).map((change, index) => change.time - changes[index].time);
-  expect(changes.length).toBeGreaterThanOrEqual(5);
+  expect(changes.length).toBeGreaterThanOrEqual(8);
   expect(Math.min(...deltas)).toBeLessThan(110);
 });
 
-test('intro rain matches the main matrix background style without a boxed content panel', async ({ page }) => {
+test('intro uses the main matrix canvas as its only rain background', async ({ page }) => {
   await page.goto('/');
 
   await expect(page.locator('.site-header')).toBeHidden();
   await expect(page.locator('main')).toBeHidden();
   await expect(page.locator('.intro-content')).toHaveCount(0);
   await expect(page.locator('[data-intro-glyph]')).toHaveCount(0);
+  await expect(page.locator('#intro-rain')).toHaveCount(0);
 
-  const rainCanvas = page.locator('#intro-rain');
-  await expect(rainCanvas).toBeVisible();
-  const alphabet = await rainCanvas.getAttribute('data-rain-alphabet');
-  expect(alphabet).toBe('01{}[]<>/\\$#@lostfrxksARTURPYTSFASTAPI');
-  await expect(rainCanvas).toHaveAttribute('data-font-size', '16');
-  await expect(rainCanvas).toHaveAttribute('data-column-width', '18');
+  const matrixCanvas = page.locator('#matrix-canvas');
+  await expect(matrixCanvas).toBeVisible();
+  await expect(matrixCanvas).toHaveAttribute('data-matrix-style', 'shared-intro-main-rain');
+  await expect(matrixCanvas).toHaveAttribute('data-animation-state', 'running');
 
-  const hasRainPixels = await rainCanvas.evaluate((canvas) => {
+  const hasRainPixels = await matrixCanvas.evaluate((canvas) => {
     const context = canvas.getContext('2d');
     const sample = context.getImageData(0, 0, canvas.width, canvas.height).data;
     for (let index = 3; index < sample.length; index += 4) {
@@ -328,59 +327,25 @@ test('intro rain matches the main matrix background style without a boxed conten
   expect(hasRainPixels).toBe(true);
 });
 
-test('intro rain slows down while the identity decrypts', async ({ page }) => {
+test('intro uses the regular pointer cursor', async ({ page }) => {
   await page.goto('/');
 
-  const rainCanvas = page.locator('#intro-rain');
-  await expect(rainCanvas).toHaveAttribute('data-rain-speed-mode', 'normal');
-
-  await page.getByRole('button', { name: /enter matrix intro/i }).click();
-
-  await expect(rainCanvas).toHaveAttribute('data-rain-speed-mode', 'decrypting');
-  await expect(rainCanvas).toHaveAttribute('data-rain-speed-target', '0.24');
-  await expect(rainCanvas).toHaveAttribute('data-trail-range', '5-18');
-  await expect(rainCanvas).toHaveAttribute('data-frame-clear-mode', 'focusing');
-  await expect(rainCanvas).toHaveAttribute('data-respawn-mode', 'after-full-trail-exit');
-  await page.waitForTimeout(450);
-
-  const currentSpeed = Number(await rainCanvas.getAttribute('data-rain-speed-current'));
-  expect(currentSpeed).toBeLessThan(0.85);
+  await expect(page.locator('#intro-screen')).toHaveCSS('cursor', 'default');
 });
 
-test('intro rain smoothly focuses from fast blurred trails into crisp decrypt rain', async ({ page }) => {
+test('main matrix canvas keeps its rain columns when intro reveals the site', async ({ page }) => {
   await page.goto('/');
 
-  const rainCanvas = page.locator('#intro-rain');
-  await expect(rainCanvas).toHaveAttribute('data-frame-clear-alpha', '0.12');
+  const matrixCanvas = page.locator('#matrix-canvas');
+  await expect(matrixCanvas).toHaveAttribute('data-animation-state', 'running');
+  await expect(matrixCanvas).toHaveAttribute('data-rain-generation', '1');
+  const generationBeforeReveal = await matrixCanvas.getAttribute('data-rain-generation');
 
   await page.getByRole('button', { name: /enter matrix intro/i }).click();
 
-  const firstFocus = await rainCanvas.evaluate((canvas) => ({
-    alpha: Number(canvas.getAttribute('data-frame-clear-alpha')),
-    focus: Number(canvas.getAttribute('data-focus-progress')),
-    refreshFrames: Number(canvas.getAttribute('data-glyph-refresh-frames')),
-  }));
-  expect(firstFocus.alpha).toBeLessThan(1);
-  expect(firstFocus.focus).toBeLessThan(0.5);
-  expect(firstFocus.refreshFrames).toBeLessThan(72);
-
-  await page.waitForTimeout(700);
-
-  const laterFocus = await rainCanvas.evaluate((canvas) => ({
-    alpha: Number(canvas.getAttribute('data-frame-clear-alpha')),
-    focus: Number(canvas.getAttribute('data-focus-progress')),
-    refreshFrames: Number(canvas.getAttribute('data-glyph-refresh-frames')),
-    mode: canvas.getAttribute('data-frame-clear-mode'),
-  }));
-  expect(laterFocus.alpha).toBeGreaterThan(firstFocus.alpha);
-  expect(laterFocus.focus).toBeGreaterThan(firstFocus.focus);
-  expect(laterFocus.focus).toBeLessThan(0.95);
-  expect(laterFocus.refreshFrames).toBeGreaterThan(firstFocus.refreshFrames);
-  expect(laterFocus.mode).toBe('focusing');
-
-  await expect(rainCanvas).toHaveAttribute('data-frame-clear-mode', 'crisp', { timeout: 2500 });
-  await expect(rainCanvas).toHaveAttribute('data-frame-clear-alpha', '1.00');
-  await expect(rainCanvas).toHaveAttribute('data-glyph-refresh-frames', '72');
+  await expect(page.locator('body')).toHaveClass(/site-revealing/, { timeout: 7000 });
+  await expect(matrixCanvas).toHaveAttribute('data-animation-state', 'running');
+  await expect(matrixCanvas).toHaveAttribute('data-rain-generation', generationBeforeReveal);
 });
 
 test('intro exits through a reveal transition instead of a hard cut', async ({ page }) => {
@@ -655,7 +620,7 @@ test('boot lines are hidden until the terminal types them', async ({ page }) => 
   await enterPortfolio(page);
 
   await expect(bootLines.first()).toHaveText('loading public profile...');
-  await expect(bootLines.nth(1)).toHaveText('mounting projects: GUROO, USC, embedding-search, ATLAS-STORE');
+  await expect(bootLines.nth(1)).toHaveText('mounting projects: GUROO, USC, embedding-search, ATLAS-STORE, AGL.KG');
   await expect(bootLines.nth(2)).toHaveText('status: online');
 });
 
@@ -671,20 +636,54 @@ test('featured projects and achievements are visible', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /USC/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Homy/i })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: /ATLAS-STORE/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /AGL\.KG/i })).toBeVisible();
   await expect(page.getByText(/mbank-voice-stand/i)).toHaveCount(0);
   await expect(projectGrid.getByText(/Django, HTML, CSS,\s+JavaScript, SQLite/i)).toBeVisible();
   await expect(projectGrid.getByText(/agent profile with avatar and metrics/i)).toHaveCount(0);
   await expect(projectGrid.locator('a[href="https://github.com/LostFrxks/homy"]')).toHaveCount(0);
-  await expect(projectGrid.getByText(/production e-commerce/i)).toBeVisible();
-  await expect(projectGrid.getByText(/Next\.js/i)).toBeVisible();
-  await expect(projectGrid.getByText(/Django REST/i)).toBeVisible();
+  await expect(projectGrid.getByText(/production e-commerce for home appliances and household goods/i)).toBeVisible();
+  await expect(projectGrid.getByText(/production catalog website for AGL/i)).toBeVisible();
+  const atlasCard = projectGrid.locator('.project-card').filter({
+    has: page.getByRole('heading', { name: 'ATLAS-STORE', exact: true }),
+  });
+  const aglCard = projectGrid.locator('.project-card').filter({
+    has: page.getByRole('heading', { name: 'AGL.KG', exact: true }),
+  });
+  await expect(atlasCard).toHaveCount(1);
+  await expect(aglCard).toHaveCount(1);
+  await expect(atlasCard.getByText(/agl\.kg/i)).toHaveCount(0);
+  await expect(projectGrid.locator('.project-card--agl')).toHaveCount(0);
+  await expect(projectGrid.locator('.project-card__preview')).toHaveCount(0);
+  const atlasStack = projectGrid.locator('[aria-label="ATLAS-STORE stack"]');
+  await expect(atlasStack.getByText('Next.js', { exact: true })).toBeVisible();
+  await expect(atlasStack.getByText('Django REST', { exact: true })).toBeVisible();
+  await expect(atlasStack.getByText('PostgreSQL', { exact: true })).toBeVisible();
+  await expect(atlasStack.getByText('Celery', { exact: true })).toBeVisible();
+  const aglStack = projectGrid.locator('[aria-label="AGL.KG stack"]');
+  await expect(aglStack.getByText('Next.js', { exact: true })).toBeVisible();
+  await expect(aglStack.getByText('React 19', { exact: true })).toBeVisible();
+  await expect(aglStack.getByText('Static Export', { exact: true })).toBeVisible();
+  await expect(aglStack.getByText('Zod', { exact: true })).toBeVisible();
+  await expect(aglStack.getByText('Cheerio', { exact: true })).toBeVisible();
+  await expect(aglStack.getByText('Vitest', { exact: true })).toBeVisible();
+  const featuredBackgrounds = await projectGrid.locator('.project-card').evaluateAll((cards) =>
+    cards.map((card) => `${getComputedStyle(card).backgroundImage} ${getComputedStyle(card).backgroundColor}`)
+  );
+  expect(featuredBackgrounds.every((background) => !/255,\s*255,\s*255|251,\s*252,\s*253|237,\s*246,\s*251/.test(background))).toBe(true);
   await expect(projectGrid.getByText(/status:/i)).toHaveCount(0);
   await expect(page.getByText(/Makeathon Winner/i)).toBeVisible();
   await expect(page.getByRole('link', { name: /Makeathon Instagram post/i })).toHaveAttribute(
     'href',
     'https://www.instagram.com/p/DCEQDdWoWb6/'
   );
-  await expect(page.getByText(/LeetCode 290\+/i)).toBeVisible();
+  await expect(page.getByText(/M-AI Champion/i)).toBeVisible();
+  await expect(page.getByLabel('Signals').getByText(/AI contribution to MMarket/i)).toBeVisible();
+  await expect(page.getByRole('link', { name: /view M-AI certificate/i })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /MDigital website/i })).toHaveAttribute(
+    'href',
+    'https://mdigital.kg/'
+  );
+  await expect(page.getByText(/LeetCode 300\+/i)).toBeVisible();
   await expect(page.getByText(/TSI Contest 2026 Winner/i)).toBeVisible();
   await expect(page.getByText(/1st place in the official standings/i)).toBeVisible();
   await expect(page.getByRole('link', { name: /TSI Contest 2026 standings/i })).toHaveAttribute(
@@ -706,18 +705,24 @@ test('featured projects and achievements are visible', async ({ page }) => {
     'href',
     'https://atlas-store.kg/'
   );
+  await expect(page.getByRole('link', { name: /open agl\.kg/i })).toHaveAttribute(
+    'href',
+    'https://www.agl.kg/'
+  );
   await expect(page.getByLabel('Signals').getByText(/ICPC NERC 2025 finalist/i)).toBeVisible();
   await expect(page.getByLabel('Signals').getByText(/GPA 3\.80/i)).toBeVisible();
   await expect(page.getByRole('link', { name: /TSI AUCA website/i })).toHaveAttribute(
     'href',
     'https://tsiauca.kg'
   );
+  await expect(page.locator('a[href*="credentials.html"]')).toHaveCount(0);
   const signalTitles = await page.getByLabel('Signals').locator('.achievement-card strong').allTextContents();
   expect(signalTitles).toEqual([
     'Makeathon Winner',
+    'M-AI Champion',
     'ICPC NERC 2025 finalist',
     'TSI Contest 2026 Winner',
-    'LeetCode 290+',
+    'LeetCode 300+',
     'TSI AUCA',
   ]);
   await expect(timeline.getByText(/Winter 2025-26/i)).toBeVisible();
@@ -1023,12 +1028,11 @@ test('main matrix background matches the intro rain style and draws visible pixe
   await page.goto('/');
 
   const matrixCanvas = page.locator('#matrix-canvas');
-  const introCanvas = page.locator('#intro-rain');
 
-  await expect(matrixCanvas).toHaveAttribute('data-matrix-style', 'intro-rain');
-  await expect(matrixCanvas).toHaveAttribute('data-rain-alphabet', await introCanvas.getAttribute('data-rain-alphabet'));
-  await expect(matrixCanvas).toHaveAttribute('data-font-size', await introCanvas.getAttribute('data-font-size'));
-  await expect(matrixCanvas).toHaveAttribute('data-column-width', await introCanvas.getAttribute('data-column-width'));
+  await expect(matrixCanvas).toHaveAttribute('data-matrix-style', 'shared-intro-main-rain');
+  await expect(matrixCanvas).toHaveAttribute('data-rain-alphabet', '01{}[]<>/\\$#@lostfrxksARTURPYTSFASTAPI');
+  await expect(matrixCanvas).toHaveAttribute('data-font-size', '16');
+  await expect(matrixCanvas).toHaveAttribute('data-column-width', '18');
   await expect(matrixCanvas).toHaveAttribute('data-rain-speed', '0.24');
   await expect(matrixCanvas).toHaveAttribute('data-trail-range', '5-18');
   await expect(matrixCanvas).toHaveAttribute('data-glyph-refresh-frames', '72');
@@ -1064,10 +1068,9 @@ test('matrix rain includes rare vertical easter egg words', async ({ page }) => 
 
   const expectedWords = ['lostfrxks', 'G5_IS_THE_BEST', 'MISS_U'];
   const matrixCanvas = page.locator('#matrix-canvas');
-  const introCanvas = page.locator('#intro-rain');
 
   await expect(matrixCanvas).toHaveAttribute('data-easter-egg-words', expectedWords.join(','));
-  await expect(introCanvas).toHaveAttribute('data-easter-egg-words', expectedWords.join(','));
+  await expect(page.locator('#intro-rain')).toHaveCount(0);
 
   const sample = await matrixCanvas.evaluate((canvas) => {
     const columns = window.__matrixDebug?.columns || [];

@@ -767,6 +767,8 @@ test('featured projects and achievements are visible', async ({ page }) => {
   );
   await expect(page.getByLabel('Signals').getByText(/ICPC NERC 2025 finalist/i)).toBeVisible();
   await expect(page.getByLabel('Signals').getByText(/GPA 3\.80/i)).toBeVisible();
+  await expect(page.getByLabel('Signals').getByText(/2023–2026/i)).toBeVisible();
+  await expect(page.getByLabel('Signals').getByText(/2022–2026/i)).toHaveCount(0);
   await expect(page.getByRole('link', { name: /TSI AUCA website/i })).toHaveAttribute(
     'href',
     'https://tsiauca.kg'
@@ -800,7 +802,8 @@ test('experience and contact target remote backend roles', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /^Software Developer Intern$/i })).toBeVisible();
   await expect(page.getByText(/MBank \/ MMarket ecosystem/i)).toBeVisible();
   await expect(page.getByLabel('Experience').getByText(/Winter 2025–2026/i)).toBeVisible();
-  await expect(page.getByText(/TODO: confirm exact stack/i)).toBeVisible();
+  await expect(page.getByText(/Worked with Python\/FastAPI\/PostgreSQL-based backend development\./i)).toBeVisible();
+  await expect(page.getByText(/TODO: confirm exact stack/i)).toHaveCount(0);
 
   await expect(page.locator('.contact-copy')).toContainText(
     /Open to remote Backend, AI Backend and Software Engineer roles/i
@@ -810,7 +813,7 @@ test('experience and contact target remote backend roles', async ({ page }) => {
   await expect(page.locator('#contact > .section-inner > .contact-actions > a')).toHaveText([
     'Email',
     'GitHub',
-    'Resume (EN)',
+    'Resume',
   ]);
   await expect(page.locator('#contact .mock-socials a')).toHaveText([
     'LinkedIn',
@@ -826,7 +829,7 @@ test('experience and contact target remote backend roles', async ({ page }) => {
     'href',
     'https://www.instagram.com/lostfrxks/'
   );
-  await expect(page.getByRole('link', { name: /Resume \(EN\)/i })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: /^Resume$/i })).toHaveAttribute(
     'href',
     'assets/artur-usenov-resume.pdf'
   );

@@ -49,10 +49,22 @@ async function jumpToScrollY(page, y) {
   );
 }
 
-test('browser title uses the lostfrxks site name', async ({ page }) => {
+test('browser title targets backend and AI backend roles', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page).toHaveTitle('lostfrxks');
+  await expect(page).toHaveTitle('Artur Usenov — Backend / AI Backend Engineer');
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    'content',
+    'Backend / AI Backend Engineer from Bishkek focused on Python, FastAPI, Django, PostgreSQL, Redis, Docker, marketplace systems, e-commerce and AI search.'
+  );
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+    'content',
+    'Artur Usenov — Backend / AI Backend Engineer'
+  );
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute(
+    'content',
+    'Production-focused backend engineer building marketplace, e-commerce and AI/search systems.'
+  );
 });
 
 test('site exposes a neon terminal favicon', async ({ page }) => {
@@ -73,13 +85,13 @@ test('site exposes a neon terminal favicon', async ({ page }) => {
 test('hero stack copy presents the backend and AI focus', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.locator('.hero-stack')).toHaveText('Python / FastAPI / Algorithms / AI Systems');
+  await expect(page.locator('.hero-stack')).toHaveText('Python · FastAPI · Django · PostgreSQL · Redis · Docker · AI Search');
 });
 
-test('hero eyebrow frames fullstack work around AI integration', async ({ page }) => {
+test('hero eyebrow frames backend and AI backend positioning', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.locator('.eyebrow')).toHaveText('Fullstack Developer // AI Integration');
+  await expect(page.locator('.eyebrow')).toHaveText('Backend / AI Backend Engineer');
 });
 
 test('hero distributes terminal content without focus cards', async ({ page }) => {
@@ -95,19 +107,15 @@ test('hero distributes terminal content without focus cards', async ({ page }) =
     const style = getComputedStyle(element);
     return {
       display: style.display,
-      flexDirection: style.flexDirection,
-      justifyContent: style.justifyContent,
+      rowGap: style.rowGap,
     };
   });
 
-  expect(terminalLayout).toEqual({
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-  });
+  expect(terminalLayout.display).toBe('grid');
+  expect(parseFloat(terminalLayout.rowGap)).toBeGreaterThan(12);
 });
 
-test('hero identity distributes its lines with flex spacing', async ({ page }) => {
+test('hero identity keeps an even vertical rhythm into the action row', async ({ page }) => {
   await page.goto('/');
 
   const identityLayout = await page.locator('.hero-identity').evaluate((element) => {
@@ -115,31 +123,52 @@ test('hero identity distributes its lines with flex spacing', async ({ page }) =
     const eyebrowMargin = getComputedStyle(element.querySelector('.eyebrow')).marginTop;
     const handleMargin = getComputedStyle(element.querySelector('.handle')).marginTop;
     const stackMargin = getComputedStyle(element.querySelector('.hero-stack')).marginTop;
+    const handleBox = element.querySelector('.handle').getBoundingClientRect();
+    const stackBox = element.querySelector('.hero-stack').getBoundingClientRect();
+    const actionsBox = document.querySelector('.hero-actions').getBoundingClientRect();
+    const terminalBox = document.querySelector('.terminal-content').getBoundingClientRect();
+    const terminalStyle = getComputedStyle(document.querySelector('.terminal-content'));
 
     return {
       display: style.display,
       flexDirection: style.flexDirection,
       justifyContent: style.justifyContent,
+      rowGap: style.rowGap,
       eyebrowMargin,
       handleMargin,
       stackMargin,
+      handleToStack: stackBox.top - handleBox.bottom,
+      stackToActions: actionsBox.top - stackBox.bottom,
+      actionsToContentBottom:
+        terminalBox.bottom - parseFloat(terminalStyle.paddingBottom) - actionsBox.bottom,
     };
   });
 
-  expect(identityLayout).toEqual({
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-    eyebrowMargin: '0px',
-    handleMargin: '0px',
-    stackMargin: '0px',
-  });
+  expect(identityLayout.display).toBe('flex');
+  expect(identityLayout.flexDirection).toBe('column');
+  expect(identityLayout.justifyContent).toBe('flex-start');
+  expect(identityLayout.eyebrowMargin).toBe('0px');
+  expect(identityLayout.handleMargin).toBe('0px');
+  expect(identityLayout.stackMargin).toBe('0px');
+  expect(identityLayout.handleToStack).toBeGreaterThan(12);
+  expect(Math.abs(identityLayout.handleToStack - identityLayout.stackToActions)).toBeLessThanOrEqual(2);
+  expect(Math.abs(identityLayout.actionsToContentBottom)).toBeLessThanOrEqual(2);
 });
 
-test('hero stays concise without the explanatory generated-sounding copy', async ({ page }) => {
+test('hero stays concise without long recruiter copy', async ({ page }) => {
   await page.goto('/');
 
   await expect(page.locator('.hero-copy')).toHaveCount(0);
+  await expect(page.locator('.hero-location')).toHaveCount(0);
+  await expect(page.getByText(/Backend-first software engineer building marketplace/i)).toHaveCount(0);
+  await expect(page.getByText(/Bishkek, Kyrgyzstan · Open to remote Backend/i)).toHaveCount(0);
+  const heroActions = page.locator('.hero-actions');
+  await expect(heroActions.locator('a').filter({ hasText: /View Experience/i })).toHaveAttribute('href', '#experience');
+  await expect(heroActions.locator('a').filter({ hasText: /Open GitHub/i })).toHaveAttribute('href', 'https://github.com/LostFrxks');
+  await expect(heroActions.locator('a').filter({ hasText: /Download CV/i })).toHaveAttribute('href', 'assets/artur-usenov-resume.pdf');
+  await expect(heroActions.locator('a[href="#contact"]')).toContainText('Contact');
+  await expect(page.getByText(/Junior/i)).toHaveCount(0);
+  await expect(page.getByText(/salary/i)).toHaveCount(0);
   await expect(page.getByText(/I build practical fullstack systems/i)).toHaveCount(0);
   await expect(page.getByText(/a little terminal drama/i)).toHaveCount(0);
 });
@@ -508,21 +537,28 @@ test('desktop matrix sections wait until they are inside the viewport before rev
   await expect(stack).toHaveClass(/matrix-revealed/);
 });
 
-test('hero presents Artur as lostfrxks fullstack developer', async ({ page }) => {
+test('hero presents Artur for backend and AI backend roles', async ({ page }) => {
   await page.goto('/');
   await enterPortfolio(page);
 
   await expect(page.getByRole('heading', { name: /Artur Usenov/i })).toBeVisible();
   await expect(page.getByText(/lostfrxks/i).first()).toBeVisible();
-  await expect(page.getByText(/Fullstack Developer/i).first()).toBeVisible();
-  await expect(page.getByText(/Current Role/i)).toBeVisible();
-  await expect(page.locator('.signal-list').getByText(/Backend Developer at MDigital/i)).toBeVisible();
+  await expect(page.getByText(/Backend \/ AI Backend Engineer/i).first()).toBeVisible();
+  await expect(page.locator('.identity-panel .avatar')).toHaveAttribute(
+    'src',
+    'https://avatars.githubusercontent.com/u/197055331?v=4'
+  );
+  await expect(page.locator('.signal-list').getByText('Current', { exact: true })).toBeVisible();
+  await expect(page.locator('.signal-list').getByText(/Backend Developer @ MDigital/i)).toBeVisible();
+  await expect(page.locator('.signal-list').getByText(/Domain/i)).toBeVisible();
+  await expect(page.locator('.signal-list').getByText(/E-commerce · FinTech · Marketplace/i)).toBeVisible();
+  await expect(page.locator('.signal-list').getByText(/Live production store shipped/i)).toBeVisible();
+  await expect(page.locator('.signal-list').getByText(/300\+ LeetCode · ICPC NERC finalist/i)).toBeVisible();
   await expect(page.locator('.signal-list').getByText(/Junior Backend Developer at MDigital/i)).toHaveCount(0);
   await expect(page.getByText(/ship working MVPs/i)).toHaveCount(0);
-  await expect(page.getByText(/Python \/ FastAPI \/ Algorithms \/ AI Systems/i)).toBeVisible();
-  await expect(page.getByText(/TSI AUCA, 2022-2026, GPA 3\.80/i)).toBeVisible();
+  await expect(page.getByText(/Python · FastAPI · Django · PostgreSQL · Redis · Docker · AI Search/i)).toBeVisible();
   await expect(page.getByText(/AUCA TSI/i)).toHaveCount(0);
-  await expect(page.getByRole('link', { name: /GitHub/i })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Open GitHub/i })).toBeVisible();
 });
 
 test('whoami block reveals its heading before typing the right-side copy', async ({ page }) => {
@@ -543,8 +579,8 @@ test('whoami block reveals its heading before typing the right-side copy', async
   await expect(command).toHaveText('/usr/bin/whoami');
   await expect(heading).toHaveText('Backend brain, fullstack hands.');
   await expect(page.locator('[data-whoami-spinner]')).toHaveCount(0);
-  await expect(firstParagraph).toContainText(/started taking programming seriously at TSI AUCA/i);
-  await expect(secondParagraph).toContainText(/MBank software developer internship/i);
+  await expect(firstParagraph).toContainText(/I build backend-heavy products/i);
+  await expect(secondParagraph).toContainText(/production backend experience, marketplace\/e-commerce domain knowledge/i);
 });
 
 test('whoami typing reserves copy height so lower sections do not jump', async ({ page }) => {
@@ -557,7 +593,7 @@ test('whoami typing reserves copy height so lower sections do not jump', async (
   await page.locator('.nav-links a[href="#whoami"]').click();
   await expect(whoami).toHaveClass(/matrix-revealed/);
   await expect(page.locator('[data-whoami-line="signals"]')).toContainText(
-    /MDigital/,
+    /semantic retrieval/,
     { timeout: 5000 }
   );
   const finalWhoamiHeight = await whoami.evaluate((element) => element.offsetHeight);
@@ -570,21 +606,17 @@ test('whoami copy tells a human college-to-backend story', async () => {
   const introCopy = markup.match(/data-whoami-line="intro"[\s\S]*?data-whoami-text="([^"]+)"/)?.[1] ?? '';
   const signalsCopy = markup.match(/data-whoami-line="signals"[\s\S]*?data-whoami-text="([^"]+)"/)?.[1] ?? '';
 
-  expect(introCopy).toMatch(/started taking programming seriously at TSI AUCA/i);
-  expect(introCopy).toMatch(/algorithms, LeetCode, and backend projects/i);
-  expect(introCopy).not.toMatch(/GUROO/i);
-  expect(introCopy).not.toMatch(/coursework/i);
-  expect(introCopy).not.toMatch(/real system/i);
-  expect(signalsCopy).toMatch(/Makeathon TOM/i);
-  expect(signalsCopy).toMatch(/ICPC Kyrgyzstan/i);
-  expect(signalsCopy).toMatch(/MBank software developer internship/i);
-  expect(signalsCopy).toMatch(/Backend Developer at MDigital/i);
-  expect(signalsCopy).toMatch(/ATLAS-STORE, a custom e-commerce store/i);
-  expect(signalsCopy).toMatch(/Django\/FastAPI, algorithms, and AI integrations/i);
+  expect(introCopy).toMatch(/backend-heavy products/i);
+  expect(introCopy).toMatch(/marketplace systems, e-commerce flows, admin tools, APIs, integrations and AI\/search features/i);
+  expect(introCopy).toMatch(/Python, FastAPI, Django, PostgreSQL, Redis and Docker/i);
+  expect(introCopy).toMatch(/React\/TypeScript when the product needs a full interface/i);
+  expect(signalsCopy).toMatch(/production backend experience/i);
+  expect(signalsCopy).toMatch(/marketplace\/e-commerce domain knowledge/i);
+  expect(signalsCopy).toMatch(/embeddings and semantic retrieval/i);
   expect(signalsCopy).not.toMatch(/three-month MBank backend internship/i);
   expect(signalsCopy).not.toMatch(/Homy/i);
   expect(signalsCopy).not.toMatch(/junior backend/i);
-  expect(signalsCopy).not.toMatch(/TypeScript interfaces/i);
+  expect(signalsCopy).not.toMatch(/student/i);
   expect(`${introCopy} ${signalsCopy}`).not.toMatch(/The strongest public signals/i);
   expect(`${introCopy} ${signalsCopy}`).not.toMatch(/turn coursework and hackathon pressure/i);
 });
@@ -596,16 +628,14 @@ test('timeline starts with college and moves into backend work', async () => {
   expect(timelineMarkup).toMatch(/<time>2023<\/time>/);
   expect(timelineMarkup).toMatch(/<time>2024<\/time>/);
   expect(timelineMarkup).toMatch(/<time>2025<\/time>/);
-  expect(timelineMarkup).toMatch(/<time>Winter 2025-26<\/time>/);
+  expect(timelineMarkup).toMatch(/<time>Winter 2025–2026<\/time>/);
   expect(timelineMarkup).toMatch(/<time>2026<\/time>/);
-  expect(timelineMarkup).toMatch(/Makeathon/i);
-  expect(timelineMarkup).toMatch(/built website GUROO for TSI AUCA/i);
-  expect(timelineMarkup).toMatch(/Placed 9th at ICPC Kyrgyzstan/i);
-  expect(timelineMarkup).toMatch(/MDigital/i);
-  expect(timelineMarkup).toMatch(/ATLAS-STORE/i);
-  expect(timelineMarkup).toMatch(/commercial e-commerce store/i);
-  expect(timelineMarkup).not.toMatch(/Built embedding-search/i);
-  expect(timelineMarkup).not.toMatch(/electric mobility platform/i);
+  expect(timelineMarkup).toMatch(/Started Software Engineering and Social Transformation at TSI AUCA/i);
+  expect(timelineMarkup).toMatch(/Built GUROO for AUCA tutor workflows and won Makeathon TOM: Kyrgyzstan/i);
+  expect(timelineMarkup).toMatch(/Advanced to ICPC NERC 2025 final, built USC marketplace MVP, created embedding-search, and shipped ATLAS-STORE live e-commerce/i);
+  expect(timelineMarkup).toMatch(/Software Developer Intern in the MBank \/ marketplace ecosystem/i);
+  expect(timelineMarkup).toMatch(/Backend Developer at MDigital, focused on backend services, product systems and e-commerce\/AI-enabled workflows/i);
+  expect(timelineMarkup).not.toMatch(/<time>2022<\/time>/);
   expect(timelineMarkup).not.toMatch(/Homy/i);
 });
 
@@ -620,7 +650,7 @@ test('boot lines are hidden until the terminal types them', async ({ page }) => 
   await enterPortfolio(page);
 
   await expect(bootLines.first()).toHaveText('loading public profile...');
-  await expect(bootLines.nth(1)).toHaveText('mounting projects: GUROO, USC, embedding-search, ATLAS-STORE, AGL.KG');
+  await expect(bootLines.nth(1)).toHaveText('mounting selected work: ATLAS-STORE, AGL.KG, USC, embedding-search, GUROO');
   await expect(bootLines.nth(2)).toHaveText('status: online');
 });
 
@@ -631,26 +661,43 @@ test('featured projects and achievements are visible', async ({ page }) => {
   const projectGrid = page.locator('#projects .project-grid');
   const timeline = page.locator('.timeline');
 
-  await expect(page.getByRole('heading', { name: /Featured Systems/i })).toBeVisible();
-  await expect(page.getByRole('heading', { name: /GUROO/i })).toBeVisible();
-  await expect(page.getByRole('heading', { name: /USC/i })).toBeVisible();
-  await expect(page.getByRole('heading', { name: /Homy/i })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: /Selected Work/i })).toBeVisible();
+  await expect(page.getByText(/Production, marketplace and AI\/search systems/i)).toBeVisible();
   await expect(page.getByRole('heading', { name: /ATLAS-STORE/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /AGL\.KG/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /USC/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /embedding-search/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /GUROO/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Homy/i })).toHaveCount(0);
   await expect(page.getByText(/mbank-voice-stand/i)).toHaveCount(0);
-  await expect(projectGrid.getByText(/Django, HTML, CSS,\s+JavaScript, SQLite/i)).toBeVisible();
   await expect(projectGrid.getByText(/agent profile with avatar and metrics/i)).toHaveCount(0);
   await expect(projectGrid.locator('a[href="https://github.com/LostFrxks/homy"]')).toHaveCount(0);
-  await expect(projectGrid.getByText(/production e-commerce for home appliances and household goods/i)).toBeVisible();
-  await expect(projectGrid.getByText(/production catalog website for AGL/i)).toBeVisible();
+  await expect(projectGrid.getByText(/Production e-commerce platform for home appliances and household goods/i)).toBeVisible();
+  await expect(projectGrid.getByText(/Production catalog website for AGL medical equipment/i)).toBeVisible();
+  await expect(projectGrid.getByText(/localized product data, catalog import scripts, product pages, contacts, WhatsApp\s+flow/i)).toBeVisible();
+  await expect(projectGrid.getByText(/Dockerized marketplace platform with FastAPI backend, PostgreSQL, Redis/i)).toBeVisible();
+  await expect(projectGrid.locator('.project-highlights')).toHaveCount(0);
+  await expect(projectGrid.getByText(/Idempotent order creation/i)).toHaveCount(0);
+  await expect(projectGrid.getByText(/Audit logs/i)).toHaveCount(0);
+  await expect(projectGrid.getByText(/Notifications API/i)).toHaveCount(0);
+  await expect(projectGrid.getByText(/Health checks/i)).toHaveCount(0);
+  await expect(projectGrid.getByText(/Metrics\/tracing/i)).toHaveCount(0);
+  await expect(projectGrid.getByText(/Sentry integration/i)).toHaveCount(0);
+  await expect(projectGrid.getByText(/CI\/test baseline/i)).toHaveCount(0);
+  await expect(projectGrid.getByText(/Marketplace Semantic Search Prototype/i)).toBeVisible();
+  await expect(projectGrid.getByText(/AUCA Tutor Registration System/i)).toBeVisible();
   const atlasCard = projectGrid.locator('.project-card').filter({
     has: page.getByRole('heading', { name: 'ATLAS-STORE', exact: true }),
   });
   const aglCard = projectGrid.locator('.project-card').filter({
     has: page.getByRole('heading', { name: 'AGL.KG', exact: true }),
   });
+  const uscCard = projectGrid.locator('.project-card').filter({
+    has: page.getByRole('heading', { name: 'USC', exact: true }),
+  });
   await expect(atlasCard).toHaveCount(1);
   await expect(aglCard).toHaveCount(1);
+  await expect(uscCard).toHaveCount(1);
   await expect(atlasCard.getByText(/agl\.kg/i)).toHaveCount(0);
   await expect(projectGrid.locator('.project-card--agl')).toHaveCount(0);
   await expect(projectGrid.locator('.project-card__preview')).toHaveCount(0);
@@ -659,31 +706,40 @@ test('featured projects and achievements are visible', async ({ page }) => {
   await expect(atlasStack.getByText('Django REST', { exact: true })).toBeVisible();
   await expect(atlasStack.getByText('PostgreSQL', { exact: true })).toBeVisible();
   await expect(atlasStack.getByText('Celery', { exact: true })).toBeVisible();
+  const uscStack = projectGrid.locator('[aria-label="USC stack"]');
+  await expect(uscStack.getByText('Prometheus', { exact: true })).toBeVisible();
+  await expect(uscStack.getByText('Sentry', { exact: true })).toBeVisible();
   const aglStack = projectGrid.locator('[aria-label="AGL.KG stack"]');
   await expect(aglStack.getByText('Next.js', { exact: true })).toBeVisible();
   await expect(aglStack.getByText('React 19', { exact: true })).toBeVisible();
+  await expect(aglStack.getByText('TypeScript', { exact: true })).toBeVisible();
   await expect(aglStack.getByText('Static Export', { exact: true })).toBeVisible();
   await expect(aglStack.getByText('Zod', { exact: true })).toBeVisible();
   await expect(aglStack.getByText('Cheerio', { exact: true })).toBeVisible();
+  await expect(aglStack.getByText('lucide-react', { exact: true })).toBeVisible();
   await expect(aglStack.getByText('Vitest', { exact: true })).toBeVisible();
+  await expect(aglStack.getByText('Playwright', { exact: true })).toBeVisible();
+  const selectedTitles = await projectGrid.locator('.project-card h3').allTextContents();
+  expect(selectedTitles).toEqual(['ATLAS-STORE', 'AGL.KG', 'USC', 'embedding-search', 'GUROO']);
   const featuredBackgrounds = await projectGrid.locator('.project-card').evaluateAll((cards) =>
     cards.map((card) => `${getComputedStyle(card).backgroundImage} ${getComputedStyle(card).backgroundColor}`)
   );
   expect(featuredBackgrounds.every((background) => !/255,\s*255,\s*255|251,\s*252,\s*253|237,\s*246,\s*251/.test(background))).toBe(true);
   await expect(projectGrid.getByText(/status:/i)).toHaveCount(0);
-  await expect(page.getByText(/Makeathon Winner/i)).toBeVisible();
+  await expect(page.getByText(/Makeathon TOM: Kyrgyzstan Winner/i)).toBeVisible();
   await expect(page.getByRole('link', { name: /Makeathon Instagram post/i })).toHaveAttribute(
     'href',
     'https://www.instagram.com/p/DCEQDdWoWb6/'
   );
   await expect(page.getByText(/M-AI Champion/i)).toBeVisible();
-  await expect(page.getByLabel('Signals').getByText(/AI contribution to MMarket/i)).toBeVisible();
-  await expect(page.getByRole('link', { name: /view M-AI certificate/i })).toHaveCount(0);
+  await expect(page.getByLabel('Signals').getByText(/Won the Mbank ecosystem OpenAI CODEX Challenge/i)).toBeVisible();
+  await expect(page.getByLabel('Signals').getByText(/AI contribution to MMarket and process quality improvement/i)).toBeVisible();
   await expect(page.getByRole('link', { name: /MDigital website/i })).toHaveAttribute(
     'href',
     'https://mdigital.kg/'
   );
   await expect(page.getByText(/LeetCode 300\+/i)).toBeVisible();
+  await expect(page.getByText(/Consistent algorithms and data structures practice across interview-style problems/i)).toBeVisible();
   await expect(page.getByText(/TSI Contest 2026 Winner/i)).toBeVisible();
   await expect(page.getByText(/1st place in the official standings/i)).toBeVisible();
   await expect(page.getByRole('link', { name: /TSI Contest 2026 standings/i })).toHaveAttribute(
@@ -701,7 +757,7 @@ test('featured projects and achievements are visible', async ({ page }) => {
     'href',
     'https://leetcode.com/u/lostfrxks/'
   );
-  await expect(page.getByRole('link', { name: /open atlas-store/i })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: /Open live store/i })).toHaveAttribute(
     'href',
     'https://atlas-store.kg/'
   );
@@ -718,17 +774,62 @@ test('featured projects and achievements are visible', async ({ page }) => {
   await expect(page.locator('a[href*="credentials.html"]')).toHaveCount(0);
   const signalTitles = await page.getByLabel('Signals').locator('.achievement-card strong').allTextContents();
   expect(signalTitles).toEqual([
-    'Makeathon Winner',
-    'M-AI Champion',
     'ICPC NERC 2025 finalist',
-    'TSI Contest 2026 Winner',
     'LeetCode 300+',
+    'TSI Contest 2026 Winner',
+    'M-AI Champion',
     'TSI AUCA',
+    'Makeathon TOM: Kyrgyzstan Winner',
   ]);
-  await expect(timeline.getByText(/Winter 2025-26/i)).toBeVisible();
-  await expect(timeline.getByText(/^MBank software developer internship$/i)).toBeVisible();
-  await expect(timeline.getByText(/^Backend Developer at MDigital$/i)).toBeVisible();
+  await expect(timeline.getByText(/Winter 2025–2026/i)).toBeVisible();
+  await expect(timeline.getByText(/Software Developer Intern in the MBank \/ marketplace ecosystem/i)).toBeVisible();
+  await expect(timeline.getByText(/Backend Developer at MDigital, focused on backend services/i)).toBeVisible();
   await expect(timeline.getByText(/backend-heavy fullstack work/i)).toHaveCount(0);
+});
+
+test('experience and contact target remote backend roles', async ({ page }) => {
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  await expect(page.getByRole('heading', { name: /Experience/i })).toBeVisible();
+  await expect(page.getByText(/experience --production/i)).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Backend Developer$/i })).toBeVisible();
+  await expect(page.getByText(/^MDigital$/i)).toBeVisible();
+  await expect(page.getByText(/2026 — Present/i)).toBeVisible();
+  await expect(page.getByText(/Ship and maintain backend APIs, database models, admin\/product workflows and integrations/i)).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Software Developer Intern$/i })).toBeVisible();
+  await expect(page.getByText(/MBank \/ MMarket ecosystem/i)).toBeVisible();
+  await expect(page.getByLabel('Experience').getByText(/Winter 2025–2026/i)).toBeVisible();
+  await expect(page.getByText(/TODO: confirm exact stack/i)).toBeVisible();
+
+  await expect(page.locator('.contact-copy')).toContainText(
+    /Open to remote Backend, AI Backend and Software Engineer roles/i
+  );
+  await expect(page.getByRole('link', { name: /^Email$/i })).toHaveAttribute('href', 'mailto:lostfrxks@gmail.com');
+  await expect(page.getByRole('link', { name: /^GitHub$/i })).toHaveAttribute('href', 'https://github.com/LostFrxks');
+  await expect(page.locator('#contact > .section-inner > .contact-actions > a')).toHaveText([
+    'Email',
+    'GitHub',
+    'Resume (EN)',
+  ]);
+  await expect(page.locator('#contact .mock-socials a')).toHaveText([
+    'LinkedIn',
+    'Telegram',
+    'Instagram',
+  ]);
+  await expect(page.getByRole('link', { name: /^LinkedIn$/i })).toHaveAttribute(
+    'href',
+    'https://www.linkedin.com/in/artur-usenov-424108395/'
+  );
+  await expect(page.getByRole('link', { name: /^Telegram$/i })).toHaveAttribute('href', 'https://t.me/lostfrxks');
+  await expect(page.getByRole('link', { name: /^Instagram$/i })).toHaveAttribute(
+    'href',
+    'https://www.instagram.com/lostfrxks/'
+  );
+  await expect(page.getByRole('link', { name: /Resume \(EN\)/i })).toHaveAttribute(
+    'href',
+    'assets/artur-usenov-resume.pdf'
+  );
 });
 
 test('featured projects use a stable card grid without slider mechanics', async ({ page }) => {
@@ -743,7 +844,7 @@ test('featured projects use a stable card grid without slider mechanics', async 
   const items = page.locator('#projects .project-grid__item');
 
   await expect(grid).toBeVisible();
-  await expect(items).toHaveCount(4);
+  await expect(items).toHaveCount(5);
   await expect(page.locator('[data-project-carousel]')).toHaveCount(0);
   await expect(page.locator('#projects .project-track')).toHaveCount(0);
   await expect(page.locator('#projects .project-scrollbar')).toHaveCount(0);
@@ -1087,7 +1188,7 @@ test('mobile layout keeps primary identity and actions reachable', async ({ page
 
   await expect(page.locator('.brand')).toBeHidden();
   await expect(page.getByRole('heading', { name: /Artur Usenov/i })).toBeVisible();
-  await expect(page.getByRole('link', { name: /GitHub/i })).toBeVisible();
+  await expect(page.locator('.hero-actions').getByRole('link', { name: /Open GitHub/i })).toBeVisible();
   await expect(page.locator('.nav-links a[href="#projects"]')).toBeVisible();
   await expect(page.locator('.command-dock')).toHaveCount(0);
 

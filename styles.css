@@ -471,11 +471,11 @@ button:focus-visible {
 }
 
 .terminal-content {
-  display: flex;
+  --hero-rhythm: 1.35rem;
+  display: grid;
   flex: 1;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 1.35rem;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: var(--hero-rhythm);
   padding: 2rem;
 }
 
@@ -532,10 +532,12 @@ button:focus-visible {
 }
 
 .hero-identity {
+  align-self: end;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  min-height: clamp(13.5rem, 34vh, 16.5rem);
+  justify-content: flex-start;
+  gap: var(--hero-rhythm);
+  min-height: auto;
 }
 
 .hero-identity .eyebrow,
@@ -685,6 +687,11 @@ h3 {
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 2rem;
+}
+
+.section-subtitle {
+  margin: 0.65rem 0 0;
+  color: var(--muted);
 }
 
 .prose-block {
@@ -890,6 +897,10 @@ h3 {
   gap: 1rem;
 }
 
+.experience-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .stack-grid,
 .achievement-grid {
   perspective: 1100px;
@@ -919,6 +930,30 @@ h3 {
 
 .stack-card h3 {
   color: var(--green);
+}
+
+.experience-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.experience-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.65rem;
+  margin: 0.5rem 0 0;
+  color: var(--cyan);
+  font-family: var(--mono);
+  font-size: 0.82rem;
+}
+
+.experience-card ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--soft);
 }
 
 .achievement-card strong {

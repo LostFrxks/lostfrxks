@@ -55,7 +55,7 @@ test('browser title targets backend and AI backend roles', async ({ page }) => {
   await expect(page).toHaveTitle('Artur Usenov — Backend / AI Backend Engineer');
   await expect(page.locator('meta[name="description"]')).toHaveAttribute(
     'content',
-    'Backend / AI Backend Engineer from Bishkek focused on Python, FastAPI, Django, PostgreSQL, Redis, Docker, marketplace systems, e-commerce and AI search.'
+    'Backend / AI Backend Engineer from Bishkek working across marketplace microservices, event-driven systems, Kubernetes delivery, AI catalog automation, Qdrant vector search and LLM pipelines.'
   );
   await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
     'content',
@@ -63,7 +63,7 @@ test('browser title targets backend and AI backend roles', async ({ page }) => {
   );
   await expect(page.locator('meta[property="og:description"]')).toHaveAttribute(
     'content',
-    'Production-focused backend engineer building marketplace, e-commerce and AI/search systems.'
+    'Backend / AI Backend Engineer from Bishkek working across marketplace microservices, event-driven systems, Kubernetes delivery, AI catalog automation, Qdrant vector search and LLM pipelines.'
   );
 });
 
@@ -85,7 +85,7 @@ test('site exposes a neon terminal favicon', async ({ page }) => {
 test('hero stack copy presents the backend and AI focus', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.locator('.hero-stack')).toHaveText('Python · FastAPI · Django · PostgreSQL · Redis · Docker · AI Search');
+  await expect(page.locator('.hero-stack')).toHaveText('Go · Python · FastAPI · PostgreSQL · Kafka · Kubernetes · Qdrant · AI Search');
 });
 
 test('hero eyebrow frames backend and AI backend positioning', async ({ page }) => {
@@ -107,11 +107,15 @@ test('hero distributes terminal content without focus cards', async ({ page }) =
     const style = getComputedStyle(element);
     return {
       display: style.display,
+      flexDirection: style.flexDirection,
+      justifyContent: style.justifyContent,
       rowGap: style.rowGap,
     };
   });
 
-  expect(terminalLayout.display).toBe('grid');
+  expect(terminalLayout.display).toBe('flex');
+  expect(terminalLayout.flexDirection).toBe('column');
+  expect(terminalLayout.justifyContent).toBe('space-between');
   expect(parseFloat(terminalLayout.rowGap)).toBeGreaterThan(12);
 });
 
@@ -121,13 +125,13 @@ test('hero identity keeps an even vertical rhythm into the action row', async ({
   const identityLayout = await page.locator('.hero-identity').evaluate((element) => {
     const style = getComputedStyle(element);
     const eyebrowMargin = getComputedStyle(element.querySelector('.eyebrow')).marginTop;
-    const handleMargin = getComputedStyle(element.querySelector('.handle')).marginTop;
+    const copyMargin = getComputedStyle(element.querySelector('.hero-copy')).marginTop;
+    const locationMargin = getComputedStyle(element.querySelector('.hero-location')).marginTop;
     const stackMargin = getComputedStyle(element.querySelector('.hero-stack')).marginTop;
-    const handleBox = element.querySelector('.handle').getBoundingClientRect();
+    const copyBox = element.querySelector('.hero-copy').getBoundingClientRect();
+    const locationBox = element.querySelector('.hero-location').getBoundingClientRect();
     const stackBox = element.querySelector('.hero-stack').getBoundingClientRect();
     const actionsBox = document.querySelector('.hero-actions').getBoundingClientRect();
-    const terminalBox = document.querySelector('.terminal-content').getBoundingClientRect();
-    const terminalStyle = getComputedStyle(document.querySelector('.terminal-content'));
 
     return {
       display: style.display,
@@ -135,33 +139,34 @@ test('hero identity keeps an even vertical rhythm into the action row', async ({
       justifyContent: style.justifyContent,
       rowGap: style.rowGap,
       eyebrowMargin,
-      handleMargin,
+      copyMargin,
+      locationMargin,
       stackMargin,
-      handleToStack: stackBox.top - handleBox.bottom,
+      copyToLocation: locationBox.top - copyBox.bottom,
+      locationToStack: stackBox.top - locationBox.bottom,
       stackToActions: actionsBox.top - stackBox.bottom,
-      actionsToContentBottom:
-        terminalBox.bottom - parseFloat(terminalStyle.paddingBottom) - actionsBox.bottom,
     };
   });
 
   expect(identityLayout.display).toBe('flex');
   expect(identityLayout.flexDirection).toBe('column');
-  expect(identityLayout.justifyContent).toBe('flex-start');
+  expect(identityLayout.justifyContent).toBe('space-between');
   expect(identityLayout.eyebrowMargin).toBe('0px');
-  expect(identityLayout.handleMargin).toBe('0px');
+  expect(identityLayout.copyMargin).toBe('0px');
+  expect(identityLayout.locationMargin).toBe('0px');
   expect(identityLayout.stackMargin).toBe('0px');
-  expect(identityLayout.handleToStack).toBeGreaterThan(12);
-  expect(Math.abs(identityLayout.handleToStack - identityLayout.stackToActions)).toBeLessThanOrEqual(2);
-  expect(Math.abs(identityLayout.actionsToContentBottom)).toBeLessThanOrEqual(2);
+  expect(identityLayout.copyToLocation).toBeGreaterThan(10);
+  expect(identityLayout.locationToStack).toBeGreaterThan(10);
+  expect(identityLayout.stackToActions).toBeGreaterThan(12);
 });
 
-test('hero stays concise without long recruiter copy', async ({ page }) => {
+test('hero copy replaces the old handle in the identity block', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.locator('.hero-copy')).toHaveCount(0);
-  await expect(page.locator('.hero-location')).toHaveCount(0);
-  await expect(page.getByText(/Backend-first software engineer building marketplace/i)).toHaveCount(0);
-  await expect(page.getByText(/Bishkek, Kyrgyzstan · Open to remote Backend/i)).toHaveCount(0);
+  await expect(page.locator('.hero-identity > .handle')).toHaveCount(0);
+  await expect(page.locator('.hero-copy')).toContainText(/Backend engineer working across marketplace microservices, platform delivery and AI-powered catalog automation/i);
+  await expect(page.locator('.hero-copy')).toContainText(/event-driven workers, Kubernetes workloads, LLM pipelines and vector search/i);
+  await expect(page.locator('.hero-location')).toHaveText('Bishkek, Kyrgyzstan · Open to remote Backend / AI Backend / Software Engineer roles');
   const heroActions = page.locator('.hero-actions');
   await expect(heroActions.locator('a').filter({ hasText: /View Experience/i })).toHaveAttribute('href', '#experience');
   await expect(heroActions.locator('a').filter({ hasText: /Open GitHub/i })).toHaveAttribute('href', 'https://github.com/LostFrxks');
@@ -502,7 +507,7 @@ test('main sections materialize with matrix reveal as they enter view', async ({
 
   await page.locator('.nav-links a[href="#projects"]').click();
 
-  await expect(projectCards).toHaveCount(4);
+  await expect(projectCards).toHaveCount(7);
   await expect(projects).toHaveClass(/matrix-revealed/);
   await expect(projectCards.first()).toHaveClass(/matrix-revealed/);
   await expect(projectCards.last()).toHaveClass(/matrix-revealed/);
@@ -546,17 +551,22 @@ test('hero presents Artur for backend and AI backend roles', async ({ page }) =>
   await expect(page.getByText(/Backend \/ AI Backend Engineer/i).first()).toBeVisible();
   await expect(page.locator('.identity-panel .avatar')).toHaveAttribute(
     'src',
-    'https://avatars.githubusercontent.com/u/197055331?v=4'
+    'assets/artur-usenov-profile.webp'
+  );
+  await expect(page.locator('.identity-panel .avatar')).toHaveAttribute(
+    'alt',
+    'Portrait of Artur Usenov in graduation attire'
   );
   await expect(page.locator('.signal-list').getByText('Current', { exact: true })).toBeVisible();
   await expect(page.locator('.signal-list').getByText(/Backend Developer @ MDigital/i)).toBeVisible();
-  await expect(page.locator('.signal-list').getByText(/Domain/i)).toBeVisible();
-  await expect(page.locator('.signal-list').getByText(/E-commerce · FinTech · Marketplace/i)).toBeVisible();
-  await expect(page.locator('.signal-list').getByText(/Live production store shipped/i)).toBeVisible();
-  await expect(page.locator('.signal-list').getByText(/300\+ LeetCode · ICPC NERC finalist/i)).toBeVisible();
+  await expect(page.locator('.signal-list').getByText(/Platform/i)).toBeVisible();
+  await expect(page.locator('.signal-list').getByText(/Go · Kafka · Kubernetes/i)).toBeVisible();
+  await expect(page.locator('.signal-list').getByText(/AI\/Data/i)).toBeVisible();
+  await expect(page.locator('.signal-list').getByText(/Qdrant · LLMs · batch pipelines/i)).toBeVisible();
+  await expect(page.locator('.signal-list').getByText(/300\+ LeetCode · ICPC finalist/i)).toBeVisible();
   await expect(page.locator('.signal-list').getByText(/Junior Backend Developer at MDigital/i)).toHaveCount(0);
   await expect(page.getByText(/ship working MVPs/i)).toHaveCount(0);
-  await expect(page.getByText(/Python · FastAPI · Django · PostgreSQL · Redis · Docker · AI Search/i)).toBeVisible();
+  await expect(page.getByText(/Go · Python · FastAPI · PostgreSQL · Kafka · Kubernetes · Qdrant · AI Search/i)).toBeVisible();
   await expect(page.getByText(/AUCA TSI/i)).toHaveCount(0);
   await expect(page.getByRole('link', { name: /Open GitHub/i })).toBeVisible();
 });
@@ -577,10 +587,10 @@ test('whoami block reveals its heading before typing the right-side copy', async
   await page.locator('.nav-links a[href="#whoami"]').click();
   await expect(whoami).toHaveClass(/matrix-revealed/);
   await expect(command).toHaveText('/usr/bin/whoami');
-  await expect(heading).toHaveText('Backend brain, fullstack hands.');
+  await expect(heading).toHaveText('Backend brain, platform instincts, fullstack hands.');
   await expect(page.locator('[data-whoami-spinner]')).toHaveCount(0);
-  await expect(firstParagraph).toContainText(/I build backend-heavy products/i);
-  await expect(secondParagraph).toContainText(/production backend experience, marketplace\/e-commerce domain knowledge/i);
+  await expect(firstParagraph).toContainText(/I build backend-heavy marketplace systems/i);
+  await expect(secondParagraph).toContainText(/production backend experience, e-commerce domain knowledge, platform delivery discipline/i);
 });
 
 test('whoami typing reserves copy height so lower sections do not jump', async ({ page }) => {
@@ -593,7 +603,7 @@ test('whoami typing reserves copy height so lower sections do not jump', async (
   await page.locator('.nav-links a[href="#whoami"]').click();
   await expect(whoami).toHaveClass(/matrix-revealed/);
   await expect(page.locator('[data-whoami-line="signals"]')).toContainText(
-    /semantic retrieval/,
+    /LLM\/vector-search automation/,
     { timeout: 5000 }
   );
   const finalWhoamiHeight = await whoami.evaluate((element) => element.offsetHeight);
@@ -606,13 +616,13 @@ test('whoami copy tells a human college-to-backend story', async () => {
   const introCopy = markup.match(/data-whoami-line="intro"[\s\S]*?data-whoami-text="([^"]+)"/)?.[1] ?? '';
   const signalsCopy = markup.match(/data-whoami-line="signals"[\s\S]*?data-whoami-text="([^"]+)"/)?.[1] ?? '';
 
-  expect(introCopy).toMatch(/backend-heavy products/i);
-  expect(introCopy).toMatch(/marketplace systems, e-commerce flows, admin tools, APIs, integrations and AI\/search features/i);
-  expect(introCopy).toMatch(/Python, FastAPI, Django, PostgreSQL, Redis and Docker/i);
-  expect(introCopy).toMatch(/React\/TypeScript when the product needs a full interface/i);
+  expect(introCopy).toMatch(/backend-heavy marketplace systems/i);
+  expect(introCopy).toMatch(/Go\/Python services, APIs, Kafka workers, PostgreSQL data flows, Kubernetes workloads/i);
+  expect(introCopy).toMatch(/internal tools and AI\/search pipelines/i);
   expect(signalsCopy).toMatch(/production backend experience/i);
-  expect(signalsCopy).toMatch(/marketplace\/e-commerce domain knowledge/i);
-  expect(signalsCopy).toMatch(/embeddings and semantic retrieval/i);
+  expect(signalsCopy).toMatch(/e-commerce domain knowledge/i);
+  expect(signalsCopy).toMatch(/platform delivery discipline/i);
+  expect(signalsCopy).toMatch(/LLM\/vector-search automation/i);
   expect(signalsCopy).not.toMatch(/three-month MBank backend internship/i);
   expect(signalsCopy).not.toMatch(/Homy/i);
   expect(signalsCopy).not.toMatch(/junior backend/i);
@@ -634,7 +644,7 @@ test('timeline starts with college and moves into backend work', async () => {
   expect(timelineMarkup).toMatch(/Built GUROO for AUCA tutor workflows and won Makeathon TOM: Kyrgyzstan/i);
   expect(timelineMarkup).toMatch(/Advanced to ICPC NERC 2025 final, built USC marketplace MVP, created embedding-search, and shipped ATLAS-STORE live e-commerce/i);
   expect(timelineMarkup).toMatch(/Software Developer Intern in the MBank \/ marketplace ecosystem/i);
-  expect(timelineMarkup).toMatch(/Backend Developer at MDigital, focused on backend services, product systems and e-commerce\/AI-enabled workflows/i);
+  expect(timelineMarkup).toMatch(/Backend Developer at MDigital \/ MMarket ecosystem, focused on marketplace platform services, Kubernetes delivery and AI catalog automation/i);
   expect(timelineMarkup).not.toMatch(/<time>2022<\/time>/);
   expect(timelineMarkup).not.toMatch(/Homy/i);
 });
@@ -650,7 +660,7 @@ test('boot lines are hidden until the terminal types them', async ({ page }) => 
   await enterPortfolio(page);
 
   await expect(bootLines.first()).toHaveText('loading public profile...');
-  await expect(bootLines.nth(1)).toHaveText('mounting selected work: ATLAS-STORE, AGL.KG, USC, embedding-search, GUROO');
+  await expect(bootLines.nth(1)).toHaveText('mounting selected work: platform runtime, AI catalog automation, public systems');
   await expect(bootLines.nth(2)).toHaveText('status: online');
 });
 
@@ -663,6 +673,8 @@ test('featured projects and achievements are visible', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: /Selected Work/i })).toBeVisible();
   await expect(page.getByText(/Production, marketplace and AI\/search systems/i)).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Marketplace Platform Runtime Split/i })).toBeVisible();
+  await expect(projectGrid.getByRole('heading', { name: /AI Catalog Automation/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /ATLAS-STORE/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /AGL\.KG/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /USC/i })).toBeVisible();
@@ -672,6 +684,9 @@ test('featured projects and achievements are visible', async ({ page }) => {
   await expect(page.getByText(/mbank-voice-stand/i)).toHaveCount(0);
   await expect(projectGrid.getByText(/agent profile with avatar and metrics/i)).toHaveCount(0);
   await expect(projectGrid.locator('a[href="https://github.com/LostFrxks/homy"]')).toHaveCount(0);
+  await expect(projectGrid.getByText(/Professional work/i)).toHaveCount(2);
+  await expect(projectGrid.getByText(/separating marketplace microservices into API, worker and outbox-worker Kubernetes workloads/i)).toBeVisible();
+  await expect(projectGrid.getByText(/LLM-based classification, Qdrant semantic search, Kafka workers, confidence scoring/i)).toBeVisible();
   await expect(projectGrid.getByText(/Production e-commerce platform for home appliances and household goods/i)).toBeVisible();
   await expect(projectGrid.getByText(/Production catalog website for AGL medical equipment/i)).toBeVisible();
   await expect(projectGrid.getByText(/localized product data, catalog import scripts, product pages, contacts, WhatsApp\s+flow/i)).toBeVisible();
@@ -720,7 +735,15 @@ test('featured projects and achievements are visible', async ({ page }) => {
   await expect(aglStack.getByText('Vitest', { exact: true })).toBeVisible();
   await expect(aglStack.getByText('Playwright', { exact: true })).toBeVisible();
   const selectedTitles = await projectGrid.locator('.project-card h3').allTextContents();
-  expect(selectedTitles).toEqual(['ATLAS-STORE', 'AGL.KG', 'USC', 'embedding-search', 'GUROO']);
+  expect(selectedTitles).toEqual([
+    'Marketplace Platform Runtime Split',
+    'AI Catalog Automation',
+    'ATLAS-STORE',
+    'AGL.KG',
+    'USC',
+    'embedding-search',
+    'GUROO',
+  ]);
   const featuredBackgrounds = await projectGrid.locator('.project-card').evaluateAll((cards) =>
     cards.map((card) => `${getComputedStyle(card).backgroundImage} ${getComputedStyle(card).backgroundColor}`)
   );
@@ -785,7 +808,7 @@ test('featured projects and achievements are visible', async ({ page }) => {
   ]);
   await expect(timeline.getByText(/Winter 2025–2026/i)).toBeVisible();
   await expect(timeline.getByText(/Software Developer Intern in the MBank \/ marketplace ecosystem/i)).toBeVisible();
-  await expect(timeline.getByText(/Backend Developer at MDigital, focused on backend services/i)).toBeVisible();
+  await expect(timeline.getByText(/Backend Developer at MDigital \/ MMarket ecosystem, focused on marketplace platform services/i)).toBeVisible();
   await expect(timeline.getByText(/backend-heavy fullstack work/i)).toHaveCount(0);
 });
 
@@ -793,20 +816,45 @@ test('experience and contact target remote backend roles', async ({ page }) => {
   await page.goto('/');
   await enterPortfolio(page);
 
+  const experience = page.getByLabel('Experience');
+
   await expect(page.getByRole('heading', { name: /Experience/i })).toBeVisible();
   await expect(page.getByText(/experience --production/i)).toBeVisible();
   await expect(page.getByRole('heading', { name: /^Backend Developer$/i })).toBeVisible();
-  await expect(page.getByText(/^MDigital$/i)).toBeVisible();
+  await expect(page.getByText(/^MDigital \/ MMarket ecosystem$/i)).toBeVisible();
   await expect(page.getByText(/2026 — Present/i)).toBeVisible();
-  await expect(page.getByText(/Ship and maintain backend APIs, database models, admin\/product workflows and integrations/i)).toBeVisible();
+  await expect(page.getByText(/Marketplace Platform & AI Automation/i)).toBeVisible();
+  await expect(page.getByText(/Working on marketplace services across backend, platform delivery and AI-powered catalog automation/i)).toBeVisible();
+  await expect(page.getByText(/Go microservices, Kafka\/outbox workers, PostgreSQL, Kubernetes deployments/i)).toBeVisible();
+  await expect(experience.getByText(/Contributed to splitting marketplace microservices into separate Kubernetes workloads/i)).toBeVisible();
+  await expect(experience.getByText(/Added backward-compatible runtime modes in Go services/i)).toBeVisible();
+  await expect(experience.getByText(/Built AI-assisted category and attribute mapping pipelines using LLMs, Qdrant semantic search/i)).toBeVisible();
+  await expect(experience.getByText(/Prepared large-scale catalog backfills and QA artifacts/i)).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Professional Focus Areas$/i })).toBeVisible();
+  await expect(page.getByText(/Marketplace Platform/i).first()).toBeVisible();
+  await expect(page.getByText(/AI Catalog Automation/i).first()).toBeVisible();
+  await expect(page.getByText(/Internal AI Tools/i)).toBeVisible();
   await expect(page.getByRole('heading', { name: /^Software Developer Intern$/i })).toBeVisible();
   await expect(page.getByText(/MBank \/ MMarket ecosystem/i)).toBeVisible();
-  await expect(page.getByLabel('Experience').getByText(/Winter 2025–2026/i)).toBeVisible();
+  await expect(experience.getByText(/Winter 2025–2026/i)).toBeVisible();
   await expect(page.getByText(/Worked with Python\/FastAPI\/PostgreSQL-based backend development\./i)).toBeVisible();
   await expect(page.getByText(/TODO: confirm exact stack/i)).toHaveCount(0);
+  await expect(page.getByText(/internal branch/i)).toHaveCount(0);
+  await expect(page.getByText(/specific category ID/i)).toHaveCount(0);
+  await expect(page.getByText(/table name/i)).toHaveCount(0);
+
+  await expect(page.getByRole('heading', { name: /^Event-driven \/ Data$/i })).toBeVisible();
+  await expect(page.getByText(/Kafka, transactional outbox, Kafka workers/i)).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Platform \/ DevOps$/i })).toBeVisible();
+  await expect(page.getByText(/Kubernetes, Rancher, ArgoCD, Helm, GitLab CI\/CD/i)).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^AI \/ Search$/i })).toBeVisible();
+  await expect(page.getByText(/Qdrant, embeddings, semantic search, Gemini\/DeepSeek APIs/i)).toBeVisible();
 
   await expect(page.locator('.contact-copy')).toContainText(
     /Open to remote Backend, AI Backend and Software Engineer roles/i
+  );
+  await expect(page.locator('.contact-copy')).toContainText(
+    /marketplace platforms, e-commerce, fintech, search, developer tools, platform engineering and AI-enabled product systems/i
   );
   await expect(page.getByRole('link', { name: /^Email$/i })).toHaveAttribute('href', 'mailto:lostfrxks@gmail.com');
   await expect(page.getByRole('link', { name: /^GitHub$/i })).toHaveAttribute('href', 'https://github.com/LostFrxks');
@@ -847,7 +895,7 @@ test('featured projects use a stable card grid without slider mechanics', async 
   const items = page.locator('#projects .project-grid__item');
 
   await expect(grid).toBeVisible();
-  await expect(items).toHaveCount(5);
+  await expect(items).toHaveCount(7);
   await expect(page.locator('[data-project-carousel]')).toHaveCount(0);
   await expect(page.locator('#projects .project-track')).toHaveCount(0);
   await expect(page.locator('#projects .project-scrollbar')).toHaveCount(0);
@@ -1233,7 +1281,7 @@ test('mobile project cards reveal individually as their column items enter view'
   const projectCards = page.locator('#projects .project-card');
   await page.locator('.nav-links a[href="#projects"]').click();
 
-  await expect(projectCards).toHaveCount(4);
+  await expect(projectCards).toHaveCount(7);
   await expect(projects).toHaveClass(/matrix-revealed/);
   await expect(projectCards.first()).toHaveClass(/matrix-revealed/);
   await expect(projectCards.last()).not.toHaveClass(/matrix-revealed/);

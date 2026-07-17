@@ -9,6 +9,21 @@ export function formatDuration(seconds) {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
+export function formatVisitTime(timestamp, timeZone) {
+  const date = new Date(timestamp);
+  if (!Number.isFinite(date.getTime())) throw new Error('Invalid analytics response');
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).format(date);
+}
+
 export function renderStats(root, stats) {
   for (const key of PERIOD_KEYS) {
     const period = stats?.periods?.[key];
@@ -21,6 +36,23 @@ export function renderStats(root, stats) {
   root.querySelector('[data-updated]').textContent = new Date(stats.generatedAt).toLocaleString(undefined, {
     timeZone: stats.timezone,
   });
+
+  const history = root.querySelector('[data-visit-history]');
+  if (!history || !Array.isArray(stats.visitTimes)) throw new Error('Invalid analytics response');
+  history.replaceChildren();
+  const visitTimes = stats.visitTimes.length > 0
+    ? stats.visitTimes
+    : [null];
+  for (const timestamp of visitTimes) {
+    const item = root.ownerDocument.createElement('li');
+    if (timestamp === null) {
+      item.className = 'analytics-history__empty';
+      item.textContent = 'No visits recorded yet.';
+    } else {
+      item.textContent = formatVisitTime(timestamp, stats.timezone);
+    }
+    history.append(item);
+  }
 }
 
 export function initializeDashboard({

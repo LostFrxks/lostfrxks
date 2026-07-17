@@ -348,11 +348,15 @@ test('stats accepts only an exact Bearer token form and denies wrong tokens', as
   assert.equal(reads, 0);
 });
 
-test('stats reads only after authorization and returns aggregate-only JSON', async () => {
+test('stats reads only after authorization and returns anonymous visit history', async () => {
   let reads = 0;
   const privateStartedAt = '2026-07-17T01:23:45.000Z';
   const dataset = {
     daily: [{ date: '2026-07-16', visits: 2, totalActiveSeconds: 60 }],
+    visitTimes: [
+      '2026-07-16T20:00:00.000Z',
+      '2026-07-17T02:00:00.000Z',
+    ],
     sessions: [{
       startedAt: privateStartedAt,
       lastSeenAt: '2026-07-17T01:24:45.000Z',
@@ -380,6 +384,10 @@ test('stats reads only after authorization and returns aggregate-only JSON', asy
   assert.deepEqual(JSON.parse(body), {
     generatedAt: NOW.toISOString(),
     timezone: 'Asia/Bishkek',
+    visitTimes: [
+      '2026-07-17T02:00:00.000Z',
+      '2026-07-16T20:00:00.000Z',
+    ],
     periods: {
       today: { visits: 1, averageActiveSeconds: 30 },
       sevenDays: { visits: 3, averageActiveSeconds: 30 },
@@ -411,6 +419,7 @@ test('stats returns zero aggregates for an empty dataset', async () => {
   for (const period of Object.values(body.periods)) {
     assert.deepEqual(period, { visits: 0, averageActiveSeconds: 0 });
   }
+  assert.deepEqual(body.visitTimes, []);
 });
 
 test('stats uses the environment token at invocation time', async () => {

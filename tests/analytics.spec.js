@@ -5,6 +5,10 @@ const STATS_ENDPOINT = '**/api/analytics/stats';
 const dashboardResponse = {
   generatedAt: '2026-07-17T10:05:00.000Z',
   timezone: 'Asia/Bishkek',
+  visitTimes: [
+    '2026-07-17T13:42:13.000Z',
+    '2026-07-17T12:05:04.000Z',
+  ],
   periods: {
     today: { visits: 4, averageActiveSeconds: 65 },
     sevenDays: { visits: 18, averageActiveSeconds: 51 },
@@ -78,7 +82,7 @@ test('analytics failures never break the public portfolio', async ({ page }) => 
   await expect(page.getByRole('button', { name: /enter matrix intro/i })).toBeVisible();
 });
 
-test('private dashboard unlocks and renders aggregate-only metrics', async ({ page }) => {
+test('private dashboard unlocks and renders metrics with newest visit times first', async ({ page }) => {
   let authorization = '';
   await page.route(STATS_ENDPOINT, async (route) => {
     authorization = route.request().headers().authorization;
@@ -100,7 +104,25 @@ test('private dashboard unlocks and renders aggregate-only metrics', async ({ pa
   await expect(page.getByRole('heading', { name: /private analytics/i })).toBeVisible();
   await expect(page.locator('[data-period="today"] [data-visits]')).toHaveText('4');
   await expect(page.locator('[data-period="today"] [data-average]')).toHaveText('1m 5s');
+  await expect(page.locator('[data-visit-history] li')).toHaveText([
+    '17 Jul 2026, 19:42:13',
+    '17 Jul 2026, 18:05:04',
+  ]);
   expect(authorization).toBe('Bearer correct-secret');
+});
+
+test('private dashboard explains when no visit history exists yet', async ({ page }) => {
+  await page.route(STATS_ENDPOINT, (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ ...dashboardResponse, visitTimes: [] }),
+  }));
+
+  await page.goto('/secret.html');
+  await page.getByLabel(/access password/i).fill('correct-secret');
+  await page.getByLabel(/access password/i).press('Enter');
+
+  await expect(page.locator('[data-visit-history]')).toHaveText('No visits recorded yet.');
 });
 
 test('secret gate stays anonymous for wrong passwords and retains retry passwords', async ({ page }) => {

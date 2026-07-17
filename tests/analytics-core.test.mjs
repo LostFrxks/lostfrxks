@@ -198,6 +198,11 @@ test('buildStats combines daily and live data without double counting authoritat
   const now = new Date('2026-07-17T06:00:00.000Z');
   const stats = buildStats({
     now,
+    visitTimes: [
+      '2026-07-17T01:00:00.000Z',
+      '2026-07-16T04:00:00.000Z',
+      '2026-07-17T02:00:00.000Z',
+    ],
     daily: [
       { date: '2026-06-01', visits: 2, totalActiveSeconds: 100 },
       { date: '2026-07-16', visits: 3, totalActiveSeconds: 90 },
@@ -218,6 +223,11 @@ test('buildStats combines daily and live data without double counting authoritat
 
   assert.equal(stats.generatedAt, now.toISOString());
   assert.equal(stats.timezone, ANALYTICS_TIME_ZONE);
+  assert.deepEqual(stats.visitTimes, [
+    '2026-07-17T02:00:00.000Z',
+    '2026-07-17T01:00:00.000Z',
+    '2026-07-16T04:00:00.000Z',
+  ]);
   assert.deepEqual(stats.periods, {
     today: { visits: 1, averageActiveSeconds: 40 },
     sevenDays: { visits: 4, averageActiveSeconds: 33 },
@@ -237,6 +247,7 @@ test('buildStats returns zeroed periods for empty data and counts zero-duration 
     thirtyDays: zeroPeriod,
     allTime: zeroPeriod,
   });
+  assert.deepEqual(empty.visitTimes, []);
 
   const withZeroDuration = buildStats({
     daily: [],

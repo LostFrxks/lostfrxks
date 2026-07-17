@@ -118,7 +118,7 @@ function summarize(items) {
   };
 }
 
-export function buildStats({ daily, sessions, now }) {
+export function buildStats({ daily, sessions, visitTimes = [], now }) {
   const authoritativeDates = new Set(daily.map((record) => record.date));
   const records = daily.map((record) => ({ ...record }));
 
@@ -143,6 +143,7 @@ export function buildStats({ daily, sessions, now }) {
   return {
     generatedAt: now.toISOString(),
     timezone: ANALYTICS_TIME_ZONE,
+    visitTimes: [...visitTimes].sort((left, right) => Date.parse(right) - Date.parse(left)),
     periods: {
       today: summarize(recordsWithin(today)),
       sevenDays: summarize(recordsWithin(sevenDaysAgo)),

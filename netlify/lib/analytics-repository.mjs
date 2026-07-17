@@ -10,7 +10,8 @@ import {
 } from './analytics-core.mjs';
 
 const STATE_KEY = 'analytics/state-v1';
-const STATE_VERSION = 1;
+const LEGACY_STATE_VERSION = 1;
+const STATE_VERSION = 2;
 const STRONG_JSON = { consistency: 'strong', type: 'json' };
 const QUIESCENT_MILLISECONDS = 48 * 60 * 60 * 1000;
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -20,7 +21,7 @@ const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}
 export class AnalyticsStorageError extends Error {}
 
 function emptyState() {
-  return { version: STATE_VERSION, daily: {}, sessions: {} };
+  return { version: STATE_VERSION, daily: {}, sessions: {}, visitTimes: [] };
 }
 
 function isObject(value) {
@@ -145,11 +146,17 @@ function canonicalDaily(value) {
 }
 
 function hasValidRoot(value) {
-  return isObject(value)
-    && hasOnlyKeys(value, ['daily', 'sessions', 'version'])
-    && value.version === STATE_VERSION
-    && isObject(value.daily)
-    && isObject(value.sessions);
+  if (!isObject(value) || !isObject(value.daily) || !isObject(value.sessions)) {
+    return false;
+  }
+
+  if (value.version === LEGACY_STATE_VERSION) {
+    return hasOnlyKeys(value, ['daily', 'sessions', 'version']);
+  }
+
+  return value.version === STATE_VERSION
+    && hasOnlyKeys(value, ['daily', 'sessions', 'version', 'visitTimes'])
+    && Array.isArray(value.visitTimes);
 }
 
 function decodeState(value, { strict }) {
@@ -175,6 +182,19 @@ function decodeState(value, { strict }) {
     }
     state.sessions[sessionId] = canonicalSession(record);
   }
+
+  const visitTimes = value.version === LEGACY_STATE_VERSION
+    ? Object.values(state.sessions).map((record) => record.startedAt)
+    : value.visitTimes;
+
+  for (const visitTime of visitTimes) {
+    if (canonicalTimestampTime(visitTime) === null) {
+      hasCorruptChild = true;
+      continue;
+    }
+    state.visitTimes.push(visitTime);
+  }
+  state.visitTimes.sort((left, right) => Date.parse(left) - Date.parse(right));
 
   if (strict && hasCorruptChild) {
     throw new AnalyticsStorageError('Invalid analytics state');
@@ -222,10 +242,14 @@ export class AnalyticsRepository {
         input.activeSeconds,
         timestamp,
       );
+      const isNewVisit = state.sessions[input.sessionId] === undefined;
       const nextState = {
         version: STATE_VERSION,
         daily: { ...state.daily },
         sessions: { ...state.sessions, [input.sessionId]: nextSession },
+        visitTimes: isNewVisit
+          ? [...state.visitTimes, timestamp.toISOString()]
+          : [...state.visitTimes],
       };
       const result = await this.store.set(
         STATE_KEY,
@@ -244,13 +268,14 @@ export class AnalyticsRepository {
   async readDataset() {
     const value = await this.store.get(STATE_KEY, STRONG_JSON);
     if (value === null) {
-      return { daily: [], sessions: [] };
+      return { daily: [], sessions: [], visitTimes: [] };
     }
 
     const state = decodeState(value, { strict: false });
     return {
       daily: Object.values(state.daily),
       sessions: Object.values(state.sessions),
+      visitTimes: [...state.visitTimes],
     };
   }
 
@@ -284,6 +309,7 @@ export class AnalyticsRepository {
         version: STATE_VERSION,
         daily: { ...state.daily },
         sessions: { ...state.sessions },
+        visitTimes: [...state.visitTimes],
       };
       let deletedSessions = 0;
 

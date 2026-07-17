@@ -22,7 +22,7 @@ function clone(value) {
 }
 
 function emptyState() {
-  return { version: 1, daily: {}, sessions: {} };
+  return { version: 2, daily: {}, sessions: {}, visitTimes: [] };
 }
 
 function session(startedAt, activeSeconds, lastSeenAt = startedAt) {
@@ -268,13 +268,100 @@ test('upsertSession creates atomic state and a forward update preserves the maxi
     '2026-07-13T08:05:00.000Z',
   ));
   assert.deepEqual(store.state(), {
-    version: 1,
+    version: 2,
     daily: {},
     sessions: { [SESSION_A]: updated },
+    visitTimes: ['2026-07-13T08:00:00.000Z'],
   });
   assert.deepEqual(store.calls.set.map(({ key, options }) => ({ key, options })), [
     { key: STATE_KEY, options: { onlyIfNew: true } },
     { key: STATE_KEY, options: { onlyIfMatch: 'etag-1' } },
+  ]);
+});
+
+test('upsertSession records one timestamp per new visit and none for heartbeats', async () => {
+  const store = new FakeStore();
+  const repository = new AnalyticsRepository(store);
+
+  await repository.upsertSession(
+    SESSION_A,
+    0,
+    new Date('2026-07-17T01:00:00.000Z'),
+  );
+  await repository.upsertSession(
+    SESSION_A,
+    20,
+    new Date('2026-07-17T01:01:00.000Z'),
+  );
+  await repository.upsertSession(
+    SESSION_B,
+    0,
+    new Date('2026-07-17T02:00:00.000Z'),
+  );
+
+  assert.deepEqual(store.state().visitTimes, [
+    '2026-07-17T01:00:00.000Z',
+    '2026-07-17T02:00:00.000Z',
+  ]);
+});
+
+test('readDataset migrates legacy live-session starts into visit history', async () => {
+  const store = new FakeStore();
+  const legacy = { version: 1, daily: {}, sessions: {} };
+  legacy.sessions[SESSION_A] = session('2026-07-17T02:00:00.000Z', 10);
+  legacy.sessions[SESSION_B] = session('2026-07-17T01:00:00.000Z', 20);
+  store.put(STATE_KEY, legacy);
+  const repository = new AnalyticsRepository(store);
+
+  const dataset = await repository.readDataset();
+
+  assert.deepEqual(dataset.visitTimes, [
+    '2026-07-17T01:00:00.000Z',
+    '2026-07-17T02:00:00.000Z',
+  ]);
+});
+
+test('upsertSession CAS retry does not duplicate a visit timestamp', async () => {
+  const store = new FakeStore();
+  let competed = false;
+  store.beforeSet = ({ store: fake }) => {
+    if (!competed) {
+      competed = true;
+      fake.put(STATE_KEY, emptyState());
+    }
+  };
+  const repository = new AnalyticsRepository(store);
+
+  await repository.upsertSession(
+    SESSION_A,
+    0,
+    new Date('2026-07-17T01:00:00.000Z'),
+  );
+
+  assert.deepEqual(store.state().visitTimes, ['2026-07-17T01:00:00.000Z']);
+  assert.equal(store.calls.set.length, 2);
+});
+
+test('compact preserves the complete timestamp history', async () => {
+  const store = new FakeStore();
+  store.put(STATE_KEY, {
+    version: 2,
+    daily: {},
+    sessions: {
+      [SESSION_A]: session('2026-07-13T08:00:00.000Z', 40),
+    },
+    visitTimes: [
+      '2026-07-12T08:00:00.000Z',
+      '2026-07-13T08:00:00.000Z',
+    ],
+  });
+  const repository = new AnalyticsRepository(store);
+
+  await repository.compact(new Date('2026-07-17T00:00:00.000Z'));
+
+  assert.deepEqual(store.state().visitTimes, [
+    '2026-07-12T08:00:00.000Z',
+    '2026-07-13T08:00:00.000Z',
   ]);
 });
 
@@ -349,7 +436,11 @@ test('readDataset returns an empty absent state and canonical buildStats-compati
   const store = new FakeStore();
   const repository = new AnalyticsRepository(store);
 
-  assert.deepEqual(await repository.readDataset(), { daily: [], sessions: [] });
+  assert.deepEqual(await repository.readDataset(), {
+    daily: [],
+    sessions: [],
+    visitTimes: [],
+  });
 
   const state = emptyState();
   state.daily['2026-07-13'] = {
@@ -364,6 +455,7 @@ test('readDataset returns an empty absent state and canonical buildStats-compati
   assert.deepEqual(dataset, {
     daily: [state.daily['2026-07-13']],
     sessions: [state.sessions[SESSION_A]],
+    visitTimes: [],
   });
   assert.equal(store.calls.get.at(-1).key, STATE_KEY);
   assert.deepEqual(store.calls.get.at(-1).options, STRONG_JSON);
@@ -392,6 +484,7 @@ test('readDataset quarantines corrupt children but rejects a malformed state roo
   assert.deepEqual(await repository.readDataset(), {
     daily: [state.daily['2026-07-13']],
     sessions: [state.sessions[SESSION_A]],
+    visitTimes: [],
   });
 
   store.put(STATE_KEY, { version: 2, daily: {}, sessions: {} });
@@ -414,11 +507,12 @@ test('compact atomically moves the exact Jul13 fixture into one daily aggregate'
 
   assert.deepEqual(result, { compactedDays: 1, deletedSessions: 2 });
   assert.deepEqual(store.state(), {
-    version: 1,
+    version: 2,
     daily: {
       '2026-07-13': { date: '2026-07-13', visits: 2, totalActiveSeconds: 60 },
     },
     sessions: {},
+    visitTimes: [],
   });
   assert.equal(store.calls.set.length, 1);
 });
@@ -660,10 +754,15 @@ test('corrupt children and aggregate overflow fail closed for every mutation', a
     totalActiveSeconds: 43_201,
   };
   corruptState.sessions[SESSION_A] = session('+275760-09-12T00:00:00.000Z', 20);
+  corruptState.visitTimes.push('not-a-timestamp');
   corruptStore.put(STATE_KEY, corruptState);
   const corruptRepository = new AnalyticsRepository(corruptStore);
 
-  assert.deepEqual(await corruptRepository.readDataset(), { daily: [], sessions: [] });
+  assert.deepEqual(await corruptRepository.readDataset(), {
+    daily: [],
+    sessions: [],
+    visitTimes: [],
+  });
   await assert.rejects(
     corruptRepository.compact(new Date('2026-07-17T00:00:00.000Z')),
     (error) => error instanceof AnalyticsStorageError

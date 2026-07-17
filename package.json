@@ -18,5 +18,12 @@
   "dependencies": {
     "@netlify/blobs": "^10.7.9",
     "@netlify/functions": "^5.3.0"
+  },
+  "overrides": {
+    "@netlify/otel": {
+      "@opentelemetry/core": "2.8.0",
+      "@opentelemetry/resources": "2.8.0",
+      "@opentelemetry/sdk-trace-node": "2.8.0"
+    }
   }
 }

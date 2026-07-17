@@ -85,6 +85,15 @@ function createBrowserHarness({
       calls.clearInterval.push(id);
       activeIntervals.delete(id);
     },
+    addEventListener(type, listener) {
+      calls.addEventListener.push([type, listener]);
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type).add(listener);
+    },
+    removeEventListener(type, listener) {
+      calls.removeEventListener.push([type, listener]);
+      listeners.get(type)?.delete(listener);
+    },
   };
 
   function emit(type) {

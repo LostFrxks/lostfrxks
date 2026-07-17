@@ -164,7 +164,7 @@ export function startAnalytics({
       }
       if (pagehideRegistered) {
         try {
-          browserDocument.removeEventListener('pagehide', handlePagehide);
+          browserWindow.removeEventListener('pagehide', handlePagehide);
         } catch {
           // Cleanup remains best-effort in restricted browser environments.
         }
@@ -230,7 +230,7 @@ export function startAnalytics({
       visibilityRegistered = false;
     }
     try {
-      browserDocument.addEventListener('pagehide', handlePagehide);
+      browserWindow.addEventListener('pagehide', handlePagehide);
       pagehideRegistered = true;
     } catch {
       pagehideRegistered = false;

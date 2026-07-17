@@ -106,6 +106,41 @@ lostfrxks.com
 
 The site can be served from any static host. If GitHub Pages is used, the custom domain should stay `lostfrxks.com` so the domain remains the primary public address.
 
+## private analytics
+
+The portfolio includes free, first-party anonymous analytics backed by Netlify Functions and Netlify Blobs. The browser sends only a random tab-scoped UUID and cumulative visible seconds:
+
+```json
+{
+  "sessionId": "random tab-scoped UUID",
+  "activeSeconds": 42
+}
+```
+
+The server stores those anonymous live sessions and daily totals in one ETag-protected state document. Application code does not store IP addresses, user agents, referrers, URLs, query parameters, location, language, or device data. Netlify may retain ordinary infrastructure logs independently of this dataset.
+
+`/analytics.html` is intentionally unlinked. Its data API requires the `ANALYTICS_ADMIN_TOKEN` Netlify environment variable. Generate a token with at least 32 random bytes:
+
+```bash
+openssl rand -hex 32
+```
+
+Copy it to **Netlify → Project configuration → Environment variables → `ANALYTICS_ADMIN_TOKEN`**. Never commit it or place it in a tracked `.env` file.
+
+Run only the static site with:
+
+```bash
+npm run start
+```
+
+For Functions and local Netlify Blobs, open `http://localhost:8888` after running:
+
+```bash
+ANALYTICS_ADMIN_TOKEN=local-development-secret npm run dev
+```
+
+Netlify Free has finite monthly allowances. Check project usage after deployment if traffic grows.
+
 ## contact
 
 - Email: [lostfrxks@gmail.com](mailto:lostfrxks@gmail.com)

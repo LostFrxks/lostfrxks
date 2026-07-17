@@ -225,10 +225,12 @@ test('buildStats returns zeroed periods for empty data and counts zero-duration 
   });
 });
 
-test('tokensEqual compares non-empty tokens and rejects empty inputs', () => {
+test('tokensEqual compares non-empty tokens and rejects empty or missing inputs', () => {
   assert.equal(tokensEqual('secret', 'secret'), true);
   assert.equal(tokensEqual('secret', 'different'), false);
   assert.equal(tokensEqual('', 'secret'), false);
   assert.equal(tokensEqual('secret', ''), false);
   assert.equal(tokensEqual('', ''), false);
+  assert.equal(tokensEqual(undefined, 'secret'), false);
+  assert.equal(tokensEqual('secret', undefined), false);
 });

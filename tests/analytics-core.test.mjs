@@ -150,7 +150,7 @@ test('mergeSession creates a new record at the server timestamp', () => {
   });
 });
 
-test('mergeSession preserves the start and never lowers active seconds', () => {
+test('mergeSession preserves timestamp extrema during a forward update', () => {
   const existing = {
     startedAt: '2026-07-17T01:00:00.000Z',
     lastSeenAt: '2026-07-17T01:01:00.000Z',
@@ -164,6 +164,34 @@ test('mergeSession preserves the start and never lowers active seconds', () => {
     activeSeconds: 50,
   });
   assert.equal(mergeSession(existing, 70, now).activeSeconds, 70);
+});
+
+test('mergeSession preserves timestamp extrema for an out-of-order cross-midnight retry', () => {
+  const existing = {
+    startedAt: '2026-07-16T18:00:00.100Z',
+    lastSeenAt: '2026-07-16T18:00:00.100Z',
+    activeSeconds: 50,
+  };
+  const now = new Date('2026-07-16T17:59:59.900Z');
+
+  assert.deepEqual(mergeSession(existing, 30, now), {
+    startedAt: now.toISOString(),
+    lastSeenAt: existing.lastSeenAt,
+    activeSeconds: 50,
+  });
+});
+
+test('mergeSession replaces invalid stored timestamps with the server timestamp', () => {
+  const now = new Date('2026-07-17T01:02:00.000Z');
+
+  assert.deepEqual(mergeSession({
+    startedAt: 'not-a-timestamp',
+    activeSeconds: 50,
+  }, 30, now), {
+    startedAt: now.toISOString(),
+    lastSeenAt: now.toISOString(),
+    activeSeconds: 50,
+  });
 });
 
 test('buildStats combines daily and live data without double counting authoritative days', () => {

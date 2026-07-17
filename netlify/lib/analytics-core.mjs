@@ -84,9 +84,21 @@ export function mergeSession(existing, activeSeconds, now) {
     };
   }
 
+  const startedAtTime = typeof existing.startedAt === 'string'
+    ? Date.parse(existing.startedAt)
+    : Number.NaN;
+  const lastSeenAtTime = typeof existing.lastSeenAt === 'string'
+    ? Date.parse(existing.lastSeenAt)
+    : Number.NaN;
+  const timestampTime = now.getTime();
+
   return {
-    startedAt: existing.startedAt,
-    lastSeenAt: timestamp,
+    startedAt: Number.isFinite(startedAtTime) && startedAtTime <= timestampTime
+      ? existing.startedAt
+      : timestamp,
+    lastSeenAt: Number.isFinite(lastSeenAtTime) && lastSeenAtTime >= timestampTime
+      ? existing.lastSeenAt
+      : timestamp,
     activeSeconds: Math.max(existing.activeSeconds, activeSeconds),
   };
 }

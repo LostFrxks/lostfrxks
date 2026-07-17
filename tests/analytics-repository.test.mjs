@@ -233,6 +233,19 @@ test('upsertSession rejects invalid direct inputs before reading or writing stat
   }
 });
 
+test('upsertSession rejects an extreme finite Date before reading or writing state', async () => {
+  const store = new FakeStore();
+  const repository = new AnalyticsRepository(store);
+
+  await assert.rejects(
+    repository.upsertSession(SESSION_A, 10, new Date(8_640_000_000_000_000)),
+    (error) => error instanceof AnalyticsInputError,
+  );
+  assert.equal(store.calls.getWithMetadata.length, 0);
+  assert.equal(store.calls.set.length, 0);
+  assert.equal(store.state(), null);
+});
+
 test('upsertSession creates atomic state and a forward update preserves the maximum', async () => {
   const store = new FakeStore();
   const repository = new AnalyticsRepository(store);
@@ -443,6 +456,22 @@ test('compact rejects invalid now before reading or writing state', async () => 
     assert.equal(store.calls.set.length, 0);
     assert.deepEqual(store.state(), state);
   }
+});
+
+test('compact rejects an extreme finite Date before reading or writing state', async () => {
+  const store = new FakeStore();
+  const state = emptyState();
+  state.sessions[SESSION_A] = session('2026-07-13T08:00:00.000Z', 40);
+  store.put(STATE_KEY, state);
+  const repository = new AnalyticsRepository(store);
+
+  await assert.rejects(
+    repository.compact(new Date(8_640_000_000_000_000)),
+    (error) => error instanceof AnalyticsInputError,
+  );
+  assert.equal(store.calls.getWithMetadata.length, 0);
+  assert.equal(store.calls.set.length, 0);
+  assert.deepEqual(store.state(), state);
 });
 
 test('compact retains recent starts and old sessions with recent lastSeenAt without writing', async () => {

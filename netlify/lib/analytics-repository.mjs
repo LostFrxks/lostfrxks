@@ -38,10 +38,16 @@ function hasUsableETag(value) {
 }
 
 function requireValidDate(value) {
-  if (!(value instanceof Date) || !Number.isFinite(value.getTime())) {
-    throw new AnalyticsInputError('Invalid analytics timestamp');
+  if (value instanceof Date) {
+    try {
+      if (canonicalTimestampTime(value.toISOString()) !== null) {
+        return value;
+      }
+    } catch {
+      // Invalid dates throw while serializing.
+    }
   }
-  return value;
+  throw new AnalyticsInputError('Invalid analytics timestamp');
 }
 
 function writeSucceeded(result) {

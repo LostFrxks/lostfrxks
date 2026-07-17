@@ -296,6 +296,7 @@ test('stats rejects non-GET methods before resolving configuration or repository
 
   assert.equal(response.status, 405);
   assert.equal(response.headers.get('allow'), 'GET');
+  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
   await assertNoStore(response);
   assert.equal(reads, 0);
 });

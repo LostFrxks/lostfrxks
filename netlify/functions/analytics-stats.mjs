@@ -57,7 +57,10 @@ export function createStatsHandler(dependencies = {}) {
 
   return async function analyticsStats(request) {
     if (request.method !== 'GET') {
-      return emptyResponse(405, { allow: 'GET' });
+      return emptyResponse(405, {
+        allow: 'GET',
+        'content-type': 'application/json; charset=utf-8',
+      });
     }
 
     const adminToken = resolveAdminToken();

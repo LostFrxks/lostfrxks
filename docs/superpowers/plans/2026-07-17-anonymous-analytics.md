@@ -4,7 +4,7 @@
 
 **Goal:** Add free, first-party anonymous visit counting and active-time measurement with a token-protected private dashboard.
 
-**Architecture:** A browser module sends a tab-scoped UUID and cumulative visible seconds to a Netlify Function. Netlify Blobs stores one live record per session, a scheduled function compacts old records into daily aggregates, and a protected stats function feeds an unlinked static dashboard.
+**Architecture:** A browser module sends a tab-scoped UUID and cumulative visible seconds to a Netlify Function. Netlify Blobs stores live sessions and daily aggregates in one versioned state document; heartbeat updates and scheduled compaction use whole-state ETag compare-and-set writes. A protected stats function feeds an unlinked static dashboard.
 
 **Tech Stack:** Vanilla HTML/CSS/ES modules, Netlify Functions, Netlify Blobs, Node.js built-in test runner, Playwright.
 
@@ -351,6 +351,23 @@ git commit -m "feat: define anonymous analytics rules"
 ```
 
 ### Task 3: Atomic Blob repository and compaction
+
+> **Implemented revision (authoritative):** The multi-key draft below was superseded after verification against `@netlify/blobs@10.7.9`: `setJSON` did not transmit conditional headers, Blob listing is not strongly consistent, and deletion has no ETag condition. The final repository uses one `analytics/state-v1` document and real `store.set(JSON.stringify(...))` calls. The older scaffold is retained only as historical TDD context and must not be implemented.
+
+Final Task 3 behavior:
+
+- Strongly read and validate one versioned state containing daily and live-session maps.
+- Validate direct UUID, duration, and canonical server timestamps before storage access.
+- Require a non-empty read ETag for updates and a non-empty returned ETag for every reported successful write; this fails closed around erroneous SDK success results.
+- Retry heartbeat and compaction conflicts at most three times, rereading and recomputing the complete state each time.
+- Compact only sessions whose Bishkek start day and `lastSeenAt` are both at least 48 hours old.
+- Move eligible sessions into daily aggregates and remove them in one ETag-conditional state write, eliminating listing divergence and unconditional-delete races.
+- Keep `readDataset()` output limited to canonical aggregate and session arrays, with no internal state fields.
+- Verify actual SDK `If-None-Match` and `If-Match` transport headers plus rejected HTTP write responses.
+
+The executable tests are `tests/analytics-repository.test.mjs`; the production implementation is `netlify/lib/analytics-repository.mjs`.
+
+#### Superseded multi-key draft (historical only)
 
 **Files:**
 - Create: `tests/analytics-repository.test.mjs`

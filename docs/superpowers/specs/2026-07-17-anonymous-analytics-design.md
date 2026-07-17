@@ -93,21 +93,15 @@ It does not send client timestamps, the current URL, query parameters, referrer,
 3. Inspect the request user-agent only to reject known automated crawlers matching the conservative case-insensitive pattern `bot|crawler|spider|slurp|headless`, then discard it.
 4. Reject bodies larger than 512 bytes and validate a canonical UUID v4 plus an integer cumulative duration from 0 through 43,200 seconds.
 5. Use server time for `startedAt` and `lastSeenAt`.
-6. Create or update one Blob record per session.
+6. Create or update the session inside one versioned analytics state Blob.
 7. Preserve the earliest start and the greatest valid active duration when duplicate or out-of-order events arrive.
-8. Use strong reads and Blob ETag conditions (`onlyIfNew` or `onlyIfMatch`) with up to three conflict retries so a late, shorter heartbeat cannot overwrite a newer duration.
+8. Use a strong read and whole-state Blob ETag conditions (`onlyIfNew` or `onlyIfMatch`) with up to three conflict retries so heartbeats and compaction are serialized without lost updates.
 
 The application will never read or write the request IP. Netlify's code-based rate limiter may group requests by IP at the platform edge, but the value is not exposed to or stored by application code.
 
 ### Blob storage
 
-Live session records will use session-only keys so the same record remains addressable if a tab stays open across midnight:
-
-```text
-sessions/<session-id>
-```
-
-Each value contains only:
+The store contains one versioned document at `analytics/state-v1`. It holds a map of live sessions and a map of retained daily aggregates. A live session value contains only:
 
 ```json
 {
@@ -117,18 +111,18 @@ Each value contains only:
 }
 ```
 
-The reporting date is derived from `startedAt` in the `Asia/Bishkek` timezone. No raw request metadata is stored.
+The reporting date is derived from `startedAt` in the `Asia/Bishkek` timezone. The state contains no raw request metadata. Reading, updating a heartbeat, and compacting old sessions all operate on the same document, so one ETag compare-and-set establishes a single winning state.
 
 ### Daily compaction
 
-An `@daily` Netlify Scheduled Function will compact completed days that ended at least 48 hours ago:
+An `@daily` Netlify Scheduled Function will compact a session only when its Bishkek start day ended at least 48 hours ago and its `lastSeenAt` is also at least 48 hours old:
 
-1. List records under `sessions/` and group eligible records by the Bishkek date derived from `startedAt`.
-2. Calculate `visits` and `totalActiveSeconds` for each eligible date.
-3. Write `daily/YYYY-MM-DD` with those aggregate values.
-4. Delete the corresponding individual records only after the aggregate write succeeds.
+1. Strongly read the versioned state and group eligible sessions by their Bishkek start date.
+2. Add each group's visits and active seconds to the daily map in a cloned next state.
+3. Remove those live sessions from that same next state.
+4. Replace the complete state with one ETag-conditional write.
 
-Compaction is idempotent: an existing daily aggregate is authoritative, and the stats function must not count both that aggregate and leftover session records. If compaction fails, the raw records remain available and the next run can retry. This retains all-time totals while minimizing long-term session-level data and avoiding a single concurrently updated global counter.
+Compaction is idempotent because moving sessions into daily aggregates and removing them is one atomic state transition. A concurrent heartbeat either wins first, forcing compaction to reread it, or starts a new visit after a successfully compacted session that was already inactive for 48 hours. A failed write leaves the previous state intact for the next retry.
 
 ### Stats function
 
@@ -136,7 +130,7 @@ Compaction is idempotent: an existing daily aggregate is authoritative, and the 
 
 1. Require `Authorization: Bearer <token>`.
 2. SHA-256 hash the supplied value and `ANALYTICS_ADMIN_TOKEN`, then compare the equal-length digests with a timing-safe comparison.
-3. Read daily aggregates and any uncompacted session records.
+3. Strongly read the state and extract daily aggregates plus uncompacted live sessions.
 4. Return only period-level aggregates; it will not return session IDs or raw timestamps.
 
 Example response shape:
@@ -214,7 +208,7 @@ Pure, storage-independent modules will cover:
 - Session payload validation and duration caps.
 - Idempotent create/update behavior for duplicate and out-of-order heartbeats.
 - Bishkek date boundaries and period selection.
-- Daily compaction without double counting.
+- Atomic whole-state compaction without double counting or deletion races.
 - Weighted averages across daily aggregates and live sessions.
 - Empty data and zero-duration visits.
 - Admin token verification and response shaping.

@@ -1,10 +1,12 @@
 import { getStore } from '@netlify/blobs';
 
 import {
+  AnalyticsInputError,
   MAX_ACTIVE_SECONDS,
   bishkekDateKey,
   isEligibleForCompaction,
   mergeSession,
+  parseSessionPayload,
 } from './analytics-core.mjs';
 
 const STATE_KEY = 'analytics/state-v1';
@@ -32,7 +34,24 @@ function hasOnlyKeys(value, expected) {
 }
 
 function hasUsableETag(value) {
-  return typeof value === 'string' && value.length > 0;
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function requireValidDate(value) {
+  if (!(value instanceof Date) || !Number.isFinite(value.getTime())) {
+    throw new AnalyticsInputError('Invalid analytics timestamp');
+  }
+  return value;
+}
+
+function writeSucceeded(result) {
+  if (!result?.modified) {
+    return false;
+  }
+  if (!hasUsableETag(result.etag)) {
+    throw new AnalyticsStorageError('Analytics state write failed');
+  }
+  return true;
 }
 
 function isValidDateKey(value) {
@@ -187,17 +206,20 @@ export class AnalyticsRepository {
   }
 
   async upsertSession(sessionId, activeSeconds, now) {
+    const input = parseSessionPayload({ sessionId, activeSeconds });
+    const timestamp = requireValidDate(now);
+
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const { state, etag } = await readForMutation(this.store);
       const nextSession = mergeSession(
-        state.sessions[sessionId] ?? null,
-        activeSeconds,
-        now,
+        state.sessions[input.sessionId] ?? null,
+        input.activeSeconds,
+        timestamp,
       );
       const nextState = {
         version: STATE_VERSION,
         daily: { ...state.daily },
-        sessions: { ...state.sessions, [sessionId]: nextSession },
+        sessions: { ...state.sessions, [input.sessionId]: nextSession },
       };
       const result = await this.store.set(
         STATE_KEY,
@@ -205,7 +227,7 @@ export class AnalyticsRepository {
         writeCondition(etag),
       );
 
-      if (result.modified) {
+      if (writeSucceeded(result)) {
         return nextSession;
       }
     }
@@ -227,6 +249,8 @@ export class AnalyticsRepository {
   }
 
   async compact(now) {
+    const timestamp = requireValidDate(now);
+
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const { state, etag } = await readForMutation(this.store);
       const sessionsByDate = new Map();
@@ -236,8 +260,8 @@ export class AnalyticsRepository {
         const lastSeenAt = Date.parse(record.lastSeenAt);
         if (
           date === null
-          || !isEligibleForCompaction(date, now)
-          || now.getTime() - lastSeenAt < QUIESCENT_MILLISECONDS
+          || !isEligibleForCompaction(date, timestamp)
+          || timestamp.getTime() - lastSeenAt < QUIESCENT_MILLISECONDS
         ) {
           continue;
         }
@@ -283,7 +307,7 @@ export class AnalyticsRepository {
         JSON.stringify(nextState),
         writeCondition(etag),
       );
-      if (result.modified) {
+      if (writeSucceeded(result)) {
         return { compactedDays: sessionsByDate.size, deletedSessions };
       }
     }

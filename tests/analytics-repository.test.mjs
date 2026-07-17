@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { getStore as getNetlifyStore } from '@netlify/blobs';
 
-import { buildStats } from '../netlify/lib/analytics-core.mjs';
+import {
+  AnalyticsInputError,
+  buildStats,
+} from '../netlify/lib/analytics-core.mjs';
 import {
   AnalyticsRepository,
   AnalyticsStorageError,
@@ -41,6 +44,7 @@ class FakeStore {
     this.beforeSet = null;
     this.afterSet = null;
     this.forceConflicts = false;
+    this.writeResult = null;
     this.calls = {
       get: [],
       getWithMetadata: [],
@@ -80,6 +84,9 @@ class FakeStore {
     if (this.forceConflicts) {
       return { modified: false };
     }
+    if (this.writeResult) {
+      return clone(this.writeResult);
+    }
 
     const current = this.entries.get(key);
     if (options.onlyIfNew && current) {
@@ -109,7 +116,7 @@ class FakeStore {
   }
 }
 
-function createNetlifyTransportStore() {
+function createNetlifyTransportStore({ writeStatus = 200 } = {}) {
   const requests = [];
   let current = null;
   let revision = 0;
@@ -128,6 +135,9 @@ function createNetlifyTransportStore() {
     }
 
     if (method === 'put') {
+      if (writeStatus !== 200) {
+        return new Response(null, { status: writeStatus });
+      }
       if (headers.get('if-none-match') === '*' && current) {
         return new Response(null, { status: 412 });
       }
@@ -169,6 +179,58 @@ test('repository writes emit conditional headers through the installed Netlify S
   assert.equal(writes[0].headers.get('if-match'), null);
   assert.equal(writes[1].headers.get('if-none-match'), null);
   assert.equal(writes[1].headers.get('if-match'), 'transport-etag-1');
+});
+
+test('upsertSession rejects Netlify SDK false-success results for HTTP 400 and 500', async () => {
+  const originalSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (callback, delay, ...args) => originalSetTimeout(
+    callback,
+    Math.min(delay, 1),
+    ...args,
+  );
+
+  try {
+    for (const writeStatus of [400, 500]) {
+      const { store } = createNetlifyTransportStore({ writeStatus });
+      const repository = new AnalyticsRepository(store);
+
+      await assert.rejects(
+        repository.upsertSession(
+          SESSION_A,
+          10,
+          new Date('2026-07-13T08:00:00.000Z'),
+        ),
+        (error) => error instanceof AnalyticsStorageError
+          && error.message === 'Analytics state write failed',
+      );
+    }
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
+test('upsertSession rejects invalid direct inputs before reading or writing state', async () => {
+  const invalidInputs = [
+    ['not-a-uuid', 10, new Date('2026-07-13T08:00:00.000Z')],
+    [SESSION_A, -1, new Date('2026-07-13T08:00:00.000Z')],
+    [SESSION_A, 1.5, new Date('2026-07-13T08:00:00.000Z')],
+    [SESSION_A, 43_201, new Date('2026-07-13T08:00:00.000Z')],
+    [SESSION_A, 10, new Date(Number.NaN)],
+    [SESSION_A, 10, '2026-07-13T08:00:00.000Z'],
+  ];
+
+  for (const [sessionId, activeSeconds, now] of invalidInputs) {
+    const store = new FakeStore();
+    const repository = new AnalyticsRepository(store);
+
+    await assert.rejects(
+      repository.upsertSession(sessionId, activeSeconds, now),
+      (error) => error instanceof AnalyticsInputError,
+    );
+    assert.equal(store.calls.getWithMetadata.length, 0);
+    assert.equal(store.calls.set.length, 0);
+    assert.equal(store.state(), null);
+  }
 });
 
 test('upsertSession creates atomic state and a forward update preserves the maximum', async () => {
@@ -346,6 +408,41 @@ test('compact atomically moves the exact Jul13 fixture into one daily aggregate'
     sessions: {},
   });
   assert.equal(store.calls.set.length, 1);
+});
+
+test('compact rejects a false-success write without mutating persisted state', async () => {
+  const store = new FakeStore();
+  const state = emptyState();
+  state.sessions[SESSION_A] = session('2026-07-13T08:00:00.000Z', 40);
+  store.put(STATE_KEY, state);
+  store.writeResult = { modified: true, etag: '   ' };
+  const repository = new AnalyticsRepository(store);
+
+  await assert.rejects(
+    repository.compact(new Date('2026-07-17T00:00:00.000Z')),
+    (error) => error instanceof AnalyticsStorageError
+      && error.message === 'Analytics state write failed',
+  );
+  assert.equal(store.calls.set.length, 1);
+  assert.deepEqual(store.state(), state);
+});
+
+test('compact rejects invalid now before reading or writing state', async () => {
+  for (const now of [new Date(Number.NaN), '2026-07-17T00:00:00.000Z']) {
+    const store = new FakeStore();
+    const state = emptyState();
+    state.sessions[SESSION_A] = session('2026-07-13T08:00:00.000Z', 40);
+    store.put(STATE_KEY, state);
+    const repository = new AnalyticsRepository(store);
+
+    await assert.rejects(
+      repository.compact(now),
+      (error) => error instanceof AnalyticsInputError,
+    );
+    assert.equal(store.calls.getWithMetadata.length, 0);
+    assert.equal(store.calls.set.length, 0);
+    assert.deepEqual(store.state(), state);
+  }
 });
 
 test('compact retains recent starts and old sessions with recent lastSeenAt without writing', async () => {

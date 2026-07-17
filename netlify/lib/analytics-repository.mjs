@@ -204,12 +204,7 @@ export class AnalyticsRepository {
           compactedDays += 1;
           authoritativeDates.add(date);
         } else {
-          let winner = null;
-          try {
-            winner = await this.store.get(key, STRONG_JSON);
-          } catch {
-            // An unreadable aggregate cannot authorize deletion.
-          }
+          const winner = await this.store.get(key, STRONG_JSON);
           if (!isValidDaily(winner, date)) {
             throw new AnalyticsStorageError('Daily aggregate conflict');
           }

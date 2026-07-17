@@ -313,6 +313,22 @@ test('compact conflict without a readable authoritative daily throws and keeps r
   assert.deepEqual(store.calls.delete, []);
 });
 
+test('compact propagates a confirmation read failure and keeps raw sessions', async () => {
+  const store = new FakeStore();
+  const storageFailure = new Error('daily read unavailable');
+  store.put('sessions/a', session('2026-07-13T08:00:00.000Z', 40));
+  store.forceConflicts.add('daily/2026-07-13');
+  store.getErrors.set('daily/2026-07-13', storageFailure);
+  const repository = new AnalyticsRepository(store);
+
+  await assert.rejects(
+    repository.compact(new Date('2026-07-17T00:00:00.000Z')),
+    (error) => error === storageFailure,
+  );
+  assert.equal(store.entries.has('sessions/a'), true);
+  assert.deepEqual(store.calls.delete, []);
+});
+
 test('compact aborts before writing when a session read has an operational failure', async () => {
   const store = new FakeStore();
   store.put('sessions/a', session('2026-07-13T08:00:00.000Z', 40));

@@ -5,10 +5,18 @@
   "description": "Matrix terminal portfolio for Artur Usenov / lostfrxks.",
   "scripts": {
     "start": "serve --listen tcp://127.0.0.1:4173 .",
-    "test": "playwright test"
+    "dev": "netlify dev",
+    "test:unit": "node --test tests/*.test.mjs",
+    "test:browser": "playwright test",
+    "test": "npm run test:unit && npm run test:browser"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
+    "netlify-cli": "^26.2.0",
     "serve": "^14.2.5"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^10.7.9",
+    "@netlify/functions": "^5.3.0"
   }
 }

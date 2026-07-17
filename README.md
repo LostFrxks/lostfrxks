@@ -119,7 +119,7 @@ The portfolio includes free, first-party anonymous analytics backed by Netlify F
 
 The server stores those anonymous live sessions and daily totals in one ETag-protected state document. Application code does not store IP addresses, user agents, referrers, URLs, query parameters, location, language, or device data. Netlify may retain ordinary infrastructure logs independently of this dataset.
 
-`/analytics.html` is intentionally unlinked. Its data API requires the `ANALYTICS_ADMIN_PASSWORD` Netlify environment variable. Use a strong password and keep it outside the repository.
+`/secret.html` is intentionally unlinked. Its data API requires the `ANALYTICS_ADMIN_PASSWORD` Netlify environment variable. Use a strong password and keep it outside the repository.
 
 Copy it to **Netlify → Project configuration → Environment variables → `ANALYTICS_ADMIN_PASSWORD`**. Never commit it or place it in a tracked `.env` file.
 

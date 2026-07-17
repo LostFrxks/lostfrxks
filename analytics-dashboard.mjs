@@ -29,8 +29,9 @@ export function initializeDashboard({
   storage = sessionStorage,
 } = {}) {
   const loginForm = root.querySelector('[data-login-form]');
-  const passwordInput = root.querySelector('#admin-password');
+  const passwordInput = root.querySelector('#access-password');
   const error = root.querySelector('[data-error]');
+  const privateContent = root.querySelector('[data-private-content]');
   const dashboard = root.querySelector('[data-dashboard]');
   const refresh = root.querySelector('[data-refresh]');
   const lock = root.querySelector('[data-lock]');
@@ -44,8 +45,10 @@ export function initializeDashboard({
     error.hidden = false;
   };
   const showLocked = () => {
+    privateContent.hidden = true;
     dashboard.hidden = true;
     loginForm.hidden = false;
+    if (root.title !== undefined) root.title = 'Access';
   };
 
   const load = async (password) => {
@@ -61,16 +64,18 @@ export function initializeDashboard({
       if (response.status === 401) {
         try { storage.removeItem(PASSWORD_KEY); } catch {}
         showLocked();
-        showError('Invalid admin password.');
+        showError('Access denied.');
         return;
       }
       if (!response.ok) throw new Error('Unavailable');
       renderStats(dashboard, await response.json());
       loginForm.hidden = true;
+      privateContent.hidden = false;
       dashboard.hidden = false;
+      if (root.title !== undefined) root.title = 'Private Analytics — lostfrxks';
     } catch {
       showLocked();
-      showError('Analytics are temporarily unavailable.');
+      showError('Temporarily unavailable.');
     }
   };
 

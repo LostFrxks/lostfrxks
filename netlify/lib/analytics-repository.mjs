@@ -7,14 +7,28 @@ import {
   mergeSession,
 } from './analytics-core.mjs';
 
+const STATE_KEY = 'analytics/state-v1';
+const STATE_VERSION = 1;
 const STRONG_JSON = { consistency: 'strong', type: 'json' };
+const QUIESCENT_MILLISECONDS = 48 * 60 * 60 * 1000;
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export class AnalyticsStorageError extends Error {}
 
+function emptyState() {
+  return { version: STATE_VERSION, daily: {}, sessions: {} };
+}
+
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasOnlyKeys(value, expected) {
+  const keys = Object.keys(value).sort();
+  return keys.length === expected.length
+    && keys.every((key, index) => key === expected[index]);
 }
 
 function hasUsableETag(value) {
@@ -48,7 +62,7 @@ function canonicalTimestampTime(value) {
 }
 
 function isValidSession(value) {
-  if (!isObject(value)) {
+  if (!isObject(value) || !hasOnlyKeys(value, ['activeSeconds', 'lastSeenAt', 'startedAt'])) {
     return false;
   }
 
@@ -62,7 +76,7 @@ function isValidSession(value) {
     && value.activeSeconds <= MAX_ACTIVE_SECONDS;
 }
 
-function publicSession(value) {
+function canonicalSession(value) {
   return {
     startedAt: value.startedAt,
     lastSeenAt: value.lastSeenAt,
@@ -79,22 +93,17 @@ function sessionDateKey(value) {
   }
 }
 
-function isValidClaimedSession(value, expectedDate = value?.compactedFor) {
-  return isValidSession(value)
-    && isValidDateKey(value.compactedFor)
-    && value.compactedFor === expectedDate
-    && sessionDateKey(value) === value.compactedFor;
-}
-
 function isValidDaily(value, expectedDate) {
-  const hasValidShape = isObject(value)
-    && isValidDateKey(value.date)
-    && (expectedDate === undefined || value.date === expectedDate)
-    && Number.isSafeInteger(value.visits)
-    && value.visits >= 0
-    && Number.isSafeInteger(value.totalActiveSeconds)
-    && value.totalActiveSeconds >= 0;
-  if (!hasValidShape || (value.visits === 0 && value.totalActiveSeconds !== 0)) {
+  if (
+    !isObject(value)
+    || !hasOnlyKeys(value, ['date', 'totalActiveSeconds', 'visits'])
+    || !isValidDateKey(value.date)
+    || value.date !== expectedDate
+    || !Number.isSafeInteger(value.visits)
+    || value.visits <= 0
+    || !Number.isSafeInteger(value.totalActiveSeconds)
+    || value.totalActiveSeconds < 0
+  ) {
     return false;
   }
 
@@ -102,103 +111,74 @@ function isValidDaily(value, expectedDate) {
     <= BigInt(value.visits) * BigInt(MAX_ACTIVE_SECONDS);
 }
 
-function isAsyncIterable(value) {
-  return value !== null
-    && value !== undefined
-    && typeof value[Symbol.asyncIterator] === 'function';
+function canonicalDaily(value) {
+  return {
+    date: value.date,
+    visits: value.visits,
+    totalActiveSeconds: value.totalActiveSeconds,
+  };
 }
 
-function nextCursor(page) {
-  return page?.nextCursor ?? page?.next_cursor;
+function hasValidRoot(value) {
+  return isObject(value)
+    && hasOnlyKeys(value, ['daily', 'sessions', 'version'])
+    && value.version === STATE_VERSION
+    && isObject(value.daily)
+    && isObject(value.sessions);
 }
 
-function addPageKeys(keys, page, prefix) {
-  for (const blob of page?.blobs ?? []) {
-    if (typeof blob?.key === 'string' && blob.key.startsWith(prefix)) {
-      keys.add(blob.key);
-    }
+function decodeState(value, { strict }) {
+  if (!hasValidRoot(value)) {
+    throw new AnalyticsStorageError('Invalid analytics state');
   }
+
+  const state = emptyState();
+  let hasCorruptChild = false;
+
+  for (const [date, record] of Object.entries(value.daily)) {
+    if (!isValidDaily(record, date)) {
+      hasCorruptChild = true;
+      continue;
+    }
+    state.daily[date] = canonicalDaily(record);
+  }
+
+  for (const [sessionId, record] of Object.entries(value.sessions)) {
+    if (!UUID_V4_PATTERN.test(sessionId) || !isValidSession(record)) {
+      hasCorruptChild = true;
+      continue;
+    }
+    state.sessions[sessionId] = canonicalSession(record);
+  }
+
+  if (strict && hasCorruptChild) {
+    throw new AnalyticsStorageError('Invalid analytics state');
+  }
+
+  return state;
 }
 
-async function listKeys(store, prefix) {
-  const keys = new Set();
-  const listing = store.list({ prefix, paginate: true });
-
-  if (isAsyncIterable(listing)) {
-    for await (const page of listing) {
-      addPageKeys(keys, page, prefix);
-    }
-    return [...keys];
+async function readForMutation(store) {
+  const current = await store.getWithMetadata(STATE_KEY, STRONG_JSON);
+  if (current === null) {
+    return { state: emptyState(), etag: null };
   }
-
-  let page = await listing;
-  if (isAsyncIterable(page)) {
-    for await (const item of page) {
-      addPageKeys(keys, item, prefix);
-    }
-    return [...keys];
+  if (!hasUsableETag(current.etag)) {
+    throw new AnalyticsStorageError('Analytics state missing ETag');
   }
-
-  const seenCursors = new Set();
-  while (page) {
-    addPageKeys(keys, page, prefix);
-    const cursor = nextCursor(page);
-    if (cursor === undefined || cursor === null) {
-      break;
-    }
-    if (seenCursors.has(cursor)) {
-      throw new AnalyticsStorageError('Blob listing pagination conflict');
-    }
-    seenCursors.add(cursor);
-    page = await store.list({ prefix, cursor });
-  }
-
-  return [...keys];
+  return { state: decodeState(current.data, { strict: true }), etag: current.etag };
 }
 
-async function readSessionEntry(store, key) {
-  try {
-    const current = await store.getWithMetadata(key, STRONG_JSON);
-    return current === null ? null : { key, ...current };
-  } catch (error) {
-    if (error instanceof SyntaxError) {
-      return null;
-    }
-    throw error;
-  }
+function writeCondition(etag) {
+  return etag === null ? { onlyIfNew: true } : { onlyIfMatch: etag };
 }
 
-async function claimSession(store, initial, date) {
-  let current = initial;
-
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    if (
-      current === null
-      || !hasUsableETag(current.etag)
-      || !isValidSession(current.data)
-      || sessionDateKey(current.data) !== date
-    ) {
-      return null;
-    }
-
-    if (Object.hasOwn(current.data, 'compactedFor')) {
-      return isValidClaimedSession(current.data, date) ? current : null;
-    }
-
-    const claimed = { ...publicSession(current.data), compactedFor: date };
-    await store.set(
-      current.key,
-      JSON.stringify(claimed),
-      { onlyIfMatch: current.etag },
-    );
-    current = await readSessionEntry(store, current.key);
-
-    if (current && isValidClaimedSession(current.data, date)) {
-      return current;
-    }
+function safeAdd(left, right) {
+  const result = left + right;
+  if (!Number.isSafeInteger(result)) {
+    throw new AnalyticsStorageError('Analytics aggregate overflow');
   }
-
-  return null;
+  return result;
 }
 
 export class AnalyticsRepository {
@@ -207,158 +187,108 @@ export class AnalyticsRepository {
   }
 
   async upsertSession(sessionId, activeSeconds, now) {
-    const key = `sessions/${sessionId}`;
-
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const current = await this.store.getWithMetadata(key, STRONG_JSON);
-      if (current && !hasUsableETag(current.etag)) {
-        throw new AnalyticsStorageError('Session record missing ETag');
-      }
-      if (current && isValidClaimedSession(current.data)) {
-        throw new AnalyticsStorageError('Session is being compacted');
-      }
-      const next = mergeSession(current?.data ?? null, activeSeconds, now);
-      const condition = current
-        ? { onlyIfMatch: current.etag }
-        : { onlyIfNew: true };
-      const result = await this.store.set(key, JSON.stringify(next), condition);
+      const { state, etag } = await readForMutation(this.store);
+      const nextSession = mergeSession(
+        state.sessions[sessionId] ?? null,
+        activeSeconds,
+        now,
+      );
+      const nextState = {
+        version: STATE_VERSION,
+        daily: { ...state.daily },
+        sessions: { ...state.sessions, [sessionId]: nextSession },
+      };
+      const result = await this.store.set(
+        STATE_KEY,
+        JSON.stringify(nextState),
+        writeCondition(etag),
+      );
 
       if (result.modified) {
-        return next;
+        return nextSession;
       }
     }
 
     throw new AnalyticsStorageError('Session update conflict');
   }
 
-  async readEntries(prefix) {
-    const keys = await listKeys(this.store, prefix);
-    const entries = await Promise.all(keys.map(async (key) => {
-      try {
-        const data = await this.store.get(key, STRONG_JSON);
-        return data === null ? null : { key, data };
-      } catch (error) {
-        if (error instanceof SyntaxError) {
-          // Malformed JSON is quarantined by omission. Operational read errors
-          // abort the snapshot so compaction cannot establish a partial total.
-          return null;
-        }
-        throw error;
-      }
-    }));
-
-    return entries.filter((entry) => entry !== null);
-  }
-
   async readDataset() {
-    const [dailyEntries, sessionEntries] = await Promise.all([
-      this.readEntries('daily/'),
-      this.readEntries('sessions/'),
-    ]);
+    const value = await this.store.get(STATE_KEY, STRONG_JSON);
+    if (value === null) {
+      return { daily: [], sessions: [] };
+    }
 
+    const state = decodeState(value, { strict: false });
     return {
-      daily: dailyEntries
-        .filter(({ key, data }) => key === `daily/${data?.date}` && isValidDaily(data))
-        .map(({ data }) => data),
-      sessions: sessionEntries
-        .filter(({ data }) => isValidSession(data))
-        .map(({ data }) => publicSession(data)),
+      daily: Object.values(state.daily),
+      sessions: Object.values(state.sessions),
     };
   }
 
-  async readSessionEntries() {
-    const keys = await listKeys(this.store, 'sessions/');
-    const entries = await Promise.all(
-      keys.map((key) => readSessionEntry(this.store, key)),
-    );
-    return entries.filter((entry) => entry !== null);
-  }
-
   async compact(now) {
-    const [dailyEntries, sessionEntries] = await Promise.all([
-      this.readEntries('daily/'),
-      this.readSessionEntries(),
-    ]);
-    const authoritativeDates = new Set(
-      dailyEntries
-        .filter(({ key, data }) => key === `daily/${data?.date}` && isValidDaily(data))
-        .map(({ data }) => data.date),
-    );
-    const sessionsByDate = new Map();
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { state, etag } = await readForMutation(this.store);
+      const sessionsByDate = new Map();
 
-    for (const entry of sessionEntries) {
-      if (!isValidSession(entry.data)) {
-        continue;
-      }
-      const date = sessionDateKey(entry.data);
-      if (date === null || !isEligibleForCompaction(date, now)) {
-        continue;
-      }
-      const entries = sessionsByDate.get(date) ?? [];
-      entries.push(entry);
-      sessionsByDate.set(date, entries);
-    }
-
-    let compactedDays = 0;
-    let deletedSessions = 0;
-
-    for (const [date, entries] of sessionsByDate) {
-      const claimed = [];
-      for (const entry of entries) {
-        const claim = await claimSession(this.store, entry, date);
-        if (claim === null) {
-          claimed.length = 0;
-          break;
-        }
-        claimed.push(claim);
-      }
-      if (claimed.length !== entries.length) {
-        continue;
-      }
-
-      if (!authoritativeDates.has(date)) {
-        const aggregate = {
-          date,
-          visits: claimed.length,
-          totalActiveSeconds: claimed.reduce(
-            (total, { data }) => total + data.activeSeconds,
-            0,
-          ),
-        };
-        const key = `daily/${date}`;
-        const result = await this.store.set(
-          key,
-          JSON.stringify(aggregate),
-          { onlyIfNew: true },
-        );
-
-        if (result.modified) {
-          compactedDays += 1;
-          authoritativeDates.add(date);
-        } else {
-          const winner = await this.store.get(key, STRONG_JSON);
-          if (!isValidDaily(winner, date)) {
-            throw new AnalyticsStorageError('Daily aggregate conflict');
-          }
-          authoritativeDates.add(date);
-        }
-      }
-
-      for (const claim of claimed) {
-        const finalized = await this.store.set(
-          claim.key,
-          JSON.stringify(claim.data),
-          { onlyIfMatch: claim.etag },
-        );
-        if (!finalized.modified) {
+      for (const [sessionId, record] of Object.entries(state.sessions)) {
+        const date = sessionDateKey(record);
+        const lastSeenAt = Date.parse(record.lastSeenAt);
+        if (
+          date === null
+          || !isEligibleForCompaction(date, now)
+          || now.getTime() - lastSeenAt < QUIESCENT_MILLISECONDS
+        ) {
           continue;
         }
-        await this.store.delete(claim.key);
-        deletedSessions += 1;
+        const sessions = sessionsByDate.get(date) ?? [];
+        sessions.push({ sessionId, record });
+        sessionsByDate.set(date, sessions);
+      }
+
+      if (sessionsByDate.size === 0) {
+        return { compactedDays: 0, deletedSessions: 0 };
+      }
+
+      const nextState = {
+        version: STATE_VERSION,
+        daily: { ...state.daily },
+        sessions: { ...state.sessions },
+      };
+      let deletedSessions = 0;
+
+      for (const [date, sessions] of sessionsByDate) {
+        const current = nextState.daily[date] ?? {
+          date,
+          visits: 0,
+          totalActiveSeconds: 0,
+        };
+        const activeSeconds = sessions.reduce(
+          (total, { record }) => safeAdd(total, record.activeSeconds),
+          0,
+        );
+        nextState.daily[date] = {
+          date,
+          visits: safeAdd(current.visits, sessions.length),
+          totalActiveSeconds: safeAdd(current.totalActiveSeconds, activeSeconds),
+        };
+        for (const { sessionId } of sessions) {
+          delete nextState.sessions[sessionId];
+          deletedSessions += 1;
+        }
+      }
+
+      const result = await this.store.set(
+        STATE_KEY,
+        JSON.stringify(nextState),
+        writeCondition(etag),
+      );
+      if (result.modified) {
+        return { compactedDays: sessionsByDate.size, deletedSessions };
       }
     }
 
-    return { compactedDays, deletedSessions };
+    throw new AnalyticsStorageError('Compaction conflict');
   }
 }
 

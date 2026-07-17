@@ -52,7 +52,7 @@ export function createStatsHandler(dependencies = {}) {
       return dependencies.adminToken;
     }
     const environment = hasInjectedEnvironment ? dependencies.env : process.env;
-    return environment?.ANALYTICS_ADMIN_TOKEN;
+    return environment?.ANALYTICS_ADMIN_PASSWORD;
   };
 
   return async function analyticsStats(request) {

@@ -307,7 +307,7 @@ test('stats fails closed when the admin token is missing or empty', async () => 
 
   for (const deps of [
     { env: {}, repository },
-    { adminToken: '', env: { ANALYTICS_ADMIN_TOKEN: 'fallback' }, repository },
+    { adminToken: '', env: { ANALYTICS_ADMIN_PASSWORD: 'fallback' }, repository },
   ]) {
     const response = await createStatsHandler(deps)(statsRequest({
       authorization: 'Bearer anything',
@@ -426,7 +426,7 @@ test('stats uses the environment token at invocation time', async () => {
       },
     },
   });
-  env.ANALYTICS_ADMIN_TOKEN = 'late-token';
+  env.ANALYTICS_ADMIN_PASSWORD = 'late-token';
 
   const response = await handler(statsRequest({ authorization: 'Bearer late-token' }));
   assert.equal(response.status, 200);

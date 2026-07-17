@@ -92,7 +92,7 @@ test('private dashboard unlocks and renders aggregate-only metrics', async ({ pa
   await page.goto('/analytics.html');
   await expect(page.getByRole('heading', { name: /private analytics/i })).toBeVisible();
   await expect(page.locator('[data-dashboard]')).toBeHidden();
-  await page.getByLabel(/admin token/i).fill('correct-secret');
+  await page.getByLabel(/admin password/i).fill('correct-secret');
   await page.getByRole('button', { name: /unlock/i }).click();
 
   await expect(page.locator('[data-period="today"] [data-visits]')).toHaveText('4');
@@ -109,16 +109,16 @@ test('private dashboard hides metrics for wrong tokens and retains retry tokens'
   }));
 
   await page.goto('/analytics.html');
-  const token = page.getByLabel(/admin token/i);
-  await token.fill('wrong-secret');
+  const password = page.getByLabel(/admin password/i);
+  await password.fill('wrong-secret');
   await page.getByRole('button', { name: /unlock/i }).click();
-  await expect(page.locator('[data-error]')).toHaveText('Invalid admin token.');
+  await expect(page.locator('[data-error]')).toHaveText('Invalid admin password.');
   await expect(page.locator('[data-dashboard]')).toBeHidden();
 
   status = 503;
-  await token.fill('correct-secret');
+  await password.fill('correct-secret');
   await page.getByRole('button', { name: /unlock/i }).click();
   await expect(page.locator('[data-error]')).toHaveText('Analytics are temporarily unavailable.');
-  await expect(token).toHaveValue('correct-secret');
+  await expect(password).toHaveValue('correct-secret');
   await expect(page.locator('[data-dashboard]')).toBeHidden();
 });

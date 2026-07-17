@@ -1,4 +1,4 @@
-const TOKEN_KEY = 'lostfrxks.analytics.adminToken';
+const PASSWORD_KEY = 'lostfrxks.analytics.adminPassword';
 const PERIOD_KEYS = ['today', 'sevenDays', 'thirtyDays', 'allTime'];
 
 export function formatDuration(seconds) {
@@ -29,7 +29,7 @@ export function initializeDashboard({
   storage = sessionStorage,
 } = {}) {
   const loginForm = root.querySelector('[data-login-form]');
-  const tokenInput = root.querySelector('#admin-token');
+  const passwordInput = root.querySelector('#admin-password');
   const error = root.querySelector('[data-error]');
   const dashboard = root.querySelector('[data-dashboard]');
   const refresh = root.querySelector('[data-refresh]');
@@ -48,20 +48,20 @@ export function initializeDashboard({
     loginForm.hidden = false;
   };
 
-  const load = async (token) => {
+  const load = async (password) => {
     clearError();
     try {
       const response = await browserFetch('/api/analytics/stats', {
         method: 'GET',
-        headers: { accept: 'application/json', authorization: `Bearer ${token}` },
+        headers: { accept: 'application/json', authorization: `Bearer ${password}` },
         cache: 'no-store',
         credentials: 'omit',
         referrerPolicy: 'no-referrer',
       });
       if (response.status === 401) {
-        try { storage.removeItem(TOKEN_KEY); } catch {}
+        try { storage.removeItem(PASSWORD_KEY); } catch {}
         showLocked();
-        showError('Invalid admin token.');
+        showError('Invalid admin password.');
         return;
       }
       if (!response.ok) throw new Error('Unavailable');
@@ -76,28 +76,28 @@ export function initializeDashboard({
 
   loginForm.addEventListener('submit', (event) => {
     event.preventDefault();
-    const token = tokenInput.value.trim();
-    if (!token) return;
-    try { storage.setItem(TOKEN_KEY, token); } catch {}
-    void load(token);
+    const password = passwordInput.value.trim();
+    if (!password) return;
+    try { storage.setItem(PASSWORD_KEY, password); } catch {}
+    void load(password);
   });
   refresh.addEventListener('click', () => {
-    let token = tokenInput.value.trim();
-    try { token = storage.getItem(TOKEN_KEY) || token; } catch {}
-    if (token) void load(token);
+    let password = passwordInput.value.trim();
+    try { password = storage.getItem(PASSWORD_KEY) || password; } catch {}
+    if (password) void load(password);
   });
   lock.addEventListener('click', () => {
-    try { storage.removeItem(TOKEN_KEY); } catch {}
-    tokenInput.value = '';
+    try { storage.removeItem(PASSWORD_KEY); } catch {}
+    passwordInput.value = '';
     clearError();
     showLocked();
   });
 
-  let savedToken = '';
-  try { savedToken = storage.getItem(TOKEN_KEY) || ''; } catch {}
-  if (savedToken) {
-    tokenInput.value = savedToken;
-    void load(savedToken);
+  let savedPassword = '';
+  try { savedPassword = storage.getItem(PASSWORD_KEY) || ''; } catch {}
+  if (savedPassword) {
+    passwordInput.value = savedPassword;
+    void load(savedPassword);
   }
 }
 

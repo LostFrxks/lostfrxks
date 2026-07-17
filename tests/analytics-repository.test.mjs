@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { getStore as getNetlifyStore } from '@netlify/blobs';
 
 import {
   AnalyticsRepository,
@@ -19,7 +20,9 @@ class FakeStore {
     this.includeCrossPrefix = includeCrossPrefix;
     this.pageSize = pageSize;
     this.revision = 0;
+    this.afterSet = null;
     this.beforeDelete = null;
+    this.beforeGetWithMetadata = null;
     this.beforeSet = null;
     this.forceConflicts = new Set();
     this.getErrors = new Map();
@@ -28,7 +31,7 @@ class FakeStore {
       get: [],
       getWithMetadata: [],
       list: [],
-      setJSON: [],
+      set: [],
     };
   }
 
@@ -40,6 +43,12 @@ class FakeStore {
 
   async getWithMetadata(key, options) {
     this.calls.getWithMetadata.push({ key, options: clone(options) });
+    if (this.beforeGetWithMetadata) {
+      await this.beforeGetWithMetadata({ key, store: this });
+    }
+    if (this.getErrors.has(key)) {
+      throw this.getErrors.get(key);
+    }
     const entry = this.entries.get(key);
     return entry
       ? { data: clone(entry.data), etag: entry.etag, metadata: {} }
@@ -54,8 +63,9 @@ class FakeStore {
     return clone(this.entries.get(key)?.data ?? null);
   }
 
-  async setJSON(key, data, options = {}) {
-    this.calls.setJSON.push({ key, data: clone(data), options: clone(options) });
+  async set(key, value, options = {}) {
+    const data = JSON.parse(value);
+    this.calls.set.push({ key, data: clone(data), options: clone(options), value });
     if (this.beforeSet) {
       await this.beforeSet({ data: clone(data), key, options: clone(options), store: this });
     }
@@ -73,6 +83,9 @@ class FakeStore {
     }
 
     const etag = this.put(key, data);
+    if (this.afterSet) {
+      await this.afterSet({ data: clone(data), etag, key, options: clone(options), store: this });
+    }
     return { etag, modified: true };
   }
 
@@ -110,8 +123,75 @@ function session(startedAt, activeSeconds, lastSeenAt = startedAt) {
   return { startedAt, lastSeenAt, activeSeconds };
 }
 
+function deferred() {
+  let resolve;
+  const promise = new Promise((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
+function createNetlifyTransportStore() {
+  const requests = [];
+  let current = null;
+  let revision = 0;
+  const fetch = async (input, init = {}) => {
+    const headers = new Headers(init.headers);
+    const method = init.method?.toLowerCase();
+    requests.push({ headers, method, url: String(input) });
+
+    if (method === 'get') {
+      return current
+        ? new Response(JSON.stringify(current.data), {
+            status: 200,
+            headers: { etag: current.etag },
+          })
+        : new Response(null, { status: 404 });
+    }
+
+    if (method === 'put') {
+      if (headers.get('if-none-match') === '*' && current) {
+        return new Response(null, { status: 412 });
+      }
+      if (headers.has('if-match') && headers.get('if-match') !== current?.etag) {
+        return new Response(null, { status: 412 });
+      }
+      const etag = `transport-etag-${++revision}`;
+      current = { data: JSON.parse(init.body), etag };
+      return new Response(null, { status: 200, headers: { etag } });
+    }
+
+    throw new Error(`Unexpected transport method: ${method}`);
+  };
+  const store = getNetlifyStore({
+    name: 'conditional-write-probe',
+    siteID: 'test-site',
+    token: 'test-token',
+    edgeURL: 'https://eventual.example',
+    uncachedEdgeURL: 'https://strong.example',
+    fetch,
+  });
+  return { requests, store };
+}
+
 test('exports a factory without requiring a live Netlify context at import time', () => {
   assert.equal(typeof createAnalyticsRepository, 'function');
+});
+
+test('repository writes emit conditional headers through the installed Netlify SDK', async () => {
+  const { requests, store } = createNetlifyTransportStore();
+  const repository = new AnalyticsRepository(store);
+  const sessionId = '2fa03426-bb1f-4b9c-a7ce-0e760552ad57';
+
+  await repository.upsertSession(sessionId, 10, new Date('2026-07-13T08:00:00.000Z'));
+  await repository.upsertSession(sessionId, 20, new Date('2026-07-13T08:01:00.000Z'));
+
+  const writes = requests.filter(({ method }) => method === 'put');
+  assert.equal(writes.length, 2);
+  assert.equal(writes[0].headers.get('if-none-match'), '*');
+  assert.equal(writes[0].headers.get('if-match'), null);
+  assert.equal(writes[1].headers.get('if-none-match'), null);
+  assert.equal(writes[1].headers.get('if-match'), 'transport-etag-1');
 });
 
 test('upsertSession creates once and forward updates never lower active time', async () => {
@@ -140,7 +220,7 @@ test('upsertSession creates once and forward updates never lower active time', a
     STRONG_JSON,
     STRONG_JSON,
   ]);
-  assert.deepEqual(store.calls.setJSON.map(({ options }) => options), [
+  assert.deepEqual(store.calls.set.map(({ options }) => options), [
     { onlyIfNew: true },
     { onlyIfMatch: 'etag-1' },
   ]);
@@ -198,7 +278,28 @@ test('upsertSession stops after three conflicts with a storage error', async () 
       && error.message === 'Session update conflict',
   );
   assert.equal(store.calls.getWithMetadata.length, 3);
-  assert.equal(store.calls.setJSON.length, 3);
+  assert.equal(store.calls.set.length, 3);
+});
+
+test('upsertSession fails closed when an existing record has no usable ETag', async () => {
+  const sessionId = '2fa03426-bb1f-4b9c-a7ce-0e760552ad57';
+  const key = `sessions/${sessionId}`;
+
+  for (const etag of [undefined, '', 42]) {
+    const store = new FakeStore();
+    store.entries.set(key, {
+      data: session('2026-07-13T08:00:00.000Z', 10),
+      etag,
+    });
+    const repository = new AnalyticsRepository(store);
+
+    await assert.rejects(
+      repository.upsertSession(sessionId, 20, new Date('2026-07-13T08:01:00.000Z')),
+      (error) => error instanceof AnalyticsStorageError
+        && error.message === 'Session record missing ETag',
+    );
+    assert.equal(store.calls.set.length, 0);
+  }
 });
 
 test('readDataset reads all pages, excludes cross-prefix keys, and preserves authoritative duplicates', async () => {
@@ -241,7 +342,7 @@ test('compact creates one exact daily aggregate and deletes its eligible session
   assert.equal(store.entries.has('sessions/b'), false);
   assert.deepEqual(result, { compactedDays: 1, deletedSessions: 2 });
   assert.deepEqual(
-    store.calls.setJSON.find(({ key }) => key === 'daily/2026-07-13').options,
+    store.calls.set.find(({ key }) => key === 'daily/2026-07-13').options,
     { onlyIfNew: true },
   );
 });
@@ -256,7 +357,7 @@ test('compact leaves recent ineligible sessions untouched', async () => {
 
   assert.deepEqual(result, { compactedDays: 0, deletedSessions: 0 });
   assert.deepEqual(store.entries.get('sessions/recent').data, recent);
-  assert.equal(store.calls.setJSON.length, 0);
+  assert.equal(store.calls.set.length, 0);
 });
 
 test('compact treats an existing daily aggregate as authoritative and cleans duplicate raw sessions', async () => {
@@ -271,7 +372,11 @@ test('compact treats an existing daily aggregate as authoritative and cleans dup
   assert.deepEqual(result, { compactedDays: 0, deletedSessions: 1 });
   assert.deepEqual(store.entries.get('daily/2026-07-13').data, authoritative);
   assert.equal(store.entries.has('sessions/duplicate'), false);
-  assert.equal(store.calls.setJSON.length, 0);
+  assert.equal(store.calls.set.some(({ key }) => key === 'daily/2026-07-13'), false);
+  assert.deepEqual(
+    store.calls.set.find(({ key }) => key === 'sessions/duplicate').options,
+    { onlyIfMatch: 'etag-2' },
+  );
 });
 
 test('compact race loser deletes only after strongly reading the winning daily aggregate', async () => {
@@ -374,9 +479,209 @@ test('compact is idempotent after a partial deletion failure', async () => {
   assert.equal(store.entries.has('sessions/b'), false);
   assert.deepEqual(retry, { compactedDays: 0, deletedSessions: 1 });
   assert.equal(
-    store.calls.setJSON.filter(({ key }) => key === 'daily/2026-07-13').length,
+    store.calls.set.filter(({ key }) => key === 'daily/2026-07-13').length,
     1,
   );
+});
+
+test('heartbeat winning the claim race is reread and included in the aggregate', async () => {
+  const store = new FakeStore();
+  const sessionId = '2fa03426-bb1f-4b9c-a7ce-0e760552ad57';
+  const key = `sessions/${sessionId}`;
+  store.put(key, session('2026-07-13T08:00:00.000Z', 40));
+  const repository = new AnalyticsRepository(store);
+  let heartbeatRan = false;
+  store.beforeSet = async ({ data, key: writeKey }) => {
+    if (!heartbeatRan && writeKey === key && data.compactedFor === '2026-07-13') {
+      heartbeatRan = true;
+      await repository.upsertSession(
+        sessionId,
+        90,
+        new Date('2026-07-13T08:05:00.000Z'),
+      );
+    }
+  };
+
+  const result = await repository.compact(new Date('2026-07-17T00:00:00.000Z'));
+
+  assert.equal(heartbeatRan, true);
+  assert.deepEqual(result, { compactedDays: 1, deletedSessions: 1 });
+  assert.deepEqual(store.entries.get('daily/2026-07-13').data, {
+    date: '2026-07-13',
+    visits: 1,
+    totalActiveSeconds: 90,
+  });
+});
+
+test('claim winning the heartbeat race prevents mutation and surfaces an explicit error', async () => {
+  const store = new FakeStore();
+  const sessionId = '2fa03426-bb1f-4b9c-a7ce-0e760552ad57';
+  const key = `sessions/${sessionId}`;
+  store.put(key, session('2026-07-13T08:00:00.000Z', 40));
+  const repository = new AnalyticsRepository(store);
+  let heartbeatError;
+  store.afterSet = async ({ data, key: writeKey }) => {
+    if (heartbeatError === undefined && writeKey === key && data.compactedFor === '2026-07-13') {
+      try {
+        await repository.upsertSession(
+          sessionId,
+          90,
+          new Date('2026-07-13T08:05:00.000Z'),
+        );
+      } catch (error) {
+        heartbeatError = error;
+      }
+    }
+  };
+
+  await repository.compact(new Date('2026-07-17T00:00:00.000Z'));
+
+  assert.ok(heartbeatError instanceof AnalyticsStorageError);
+  assert.equal(heartbeatError.message, 'Session is being compacted');
+  assert.deepEqual(store.entries.get('daily/2026-07-13').data, {
+    date: '2026-07-13',
+    visits: 1,
+    totalActiveSeconds: 40,
+  });
+});
+
+test('concurrent compactors converge on one claimed session snapshot', async () => {
+  const store = new FakeStore();
+  store.put('sessions/a', session('2026-07-13T08:00:00.000Z', 40));
+  const repositoryA = new AnalyticsRepository(store);
+  const repositoryB = new AnalyticsRepository(store);
+  const claimsArrived = deferred();
+  let claimAttempts = 0;
+  store.beforeSet = async ({ data, key }) => {
+    if (key === 'sessions/a' && data.compactedFor === '2026-07-13') {
+      claimAttempts += 1;
+      if (claimAttempts === 2) {
+        claimsArrived.resolve();
+      }
+      await claimsArrived.promise;
+    }
+  };
+  const now = new Date('2026-07-17T00:00:00.000Z');
+
+  const results = await Promise.all([
+    repositoryA.compact(now),
+    repositoryB.compact(now),
+  ]);
+
+  assert.deepEqual(store.entries.get('daily/2026-07-13').data, {
+    date: '2026-07-13',
+    visits: 1,
+    totalActiveSeconds: 40,
+  });
+  assert.equal(store.entries.has('sessions/a'), false);
+  assert.equal(results.reduce((sum, result) => sum + result.compactedDays, 0), 1);
+  assert.ok(
+    store.calls.set
+      .filter(({ key }) => key === 'sessions/a')
+      .every(({ data }) => data.compactedFor === '2026-07-13'),
+  );
+  assert.ok(claimAttempts >= 2);
+});
+
+test('a crash after claiming leaves a readable snapshot that a retry compacts', async () => {
+  const store = new FakeStore();
+  const raw = session('2026-07-13T08:00:00.000Z', 40);
+  store.put('sessions/a', raw);
+  const repository = new AnalyticsRepository(store);
+  const crash = new Error('daily write crashed');
+  let shouldCrash = true;
+  store.beforeSet = ({ key }) => {
+    if (shouldCrash && key === 'daily/2026-07-13') {
+      shouldCrash = false;
+      throw crash;
+    }
+  };
+  const now = new Date('2026-07-17T00:00:00.000Z');
+
+  await assert.rejects(repository.compact(now), (error) => error === crash);
+  assert.deepEqual(store.entries.get('sessions/a').data, {
+    ...raw,
+    compactedFor: '2026-07-13',
+  });
+  assert.deepEqual(await repository.readDataset(), { daily: [], sessions: [raw] });
+
+  const retry = await repository.compact(now);
+  assert.deepEqual(retry, { compactedDays: 1, deletedSessions: 1 });
+  assert.equal(store.entries.has('sessions/a'), false);
+  assert.deepEqual(store.entries.get('daily/2026-07-13').data, {
+    date: '2026-07-13',
+    visits: 1,
+    totalActiveSeconds: 40,
+  });
+});
+
+test('compaction does not delete a claimed record whose provenance changed', async () => {
+  const store = new FakeStore();
+  store.put('sessions/a', session('2026-07-13T08:00:00.000Z', 40));
+  const repository = new AnalyticsRepository(store);
+  const changed = session('2026-07-13T08:00:00.000Z', 90, '2026-07-13T08:05:00.000Z');
+  let changedBeforeDelete = false;
+  store.beforeSet = ({ data, key, store: fake }) => {
+    if (
+      !changedBeforeDelete
+      && key === 'sessions/a'
+      && fake.entries.has('daily/2026-07-13')
+      && data.compactedFor === '2026-07-13'
+    ) {
+      changedBeforeDelete = true;
+      fake.put(key, changed);
+    }
+  };
+
+  const result = await repository.compact(new Date('2026-07-17T00:00:00.000Z'));
+
+  assert.equal(changedBeforeDelete, true);
+  assert.deepEqual(result, { compactedDays: 1, deletedSessions: 0 });
+  assert.deepEqual(store.entries.get('sessions/a').data, changed);
+  assert.deepEqual(store.entries.get('daily/2026-07-13').data, {
+    date: '2026-07-13',
+    visits: 1,
+    totalActiveSeconds: 40,
+  });
+});
+
+test('noncanonical or unsupported timestamps are omitted without aborting compaction', async () => {
+  const store = new FakeStore();
+  const unsupported = session('+275760-09-12T00:00:00.000Z', 20);
+  const noncanonical = session('2026-07-13T08:00:00Z', 30);
+  store.put('sessions/extreme', unsupported);
+  store.put('sessions/noncanonical', noncanonical);
+  const repository = new AnalyticsRepository(store);
+
+  const dataset = await repository.readDataset();
+  const result = await repository.compact(new Date('2026-07-17T00:00:00.000Z'));
+
+  assert.deepEqual(dataset.sessions, []);
+  assert.deepEqual(result, { compactedDays: 0, deletedSessions: 0 });
+  assert.deepEqual(store.entries.get('sessions/extreme').data, unsupported);
+  assert.deepEqual(store.entries.get('sessions/noncanonical').data, noncanonical);
+});
+
+test('impossible daily totals are not authoritative and never authorize raw deletion', async () => {
+  const corruptRecords = [
+    { date: '2026-07-13', visits: 0, totalActiveSeconds: 1 },
+    { date: '2026-07-13', visits: 1, totalActiveSeconds: 43_201 },
+  ];
+
+  for (const corrupt of corruptRecords) {
+    const store = new FakeStore();
+    store.put('daily/2026-07-13', corrupt);
+    store.put('sessions/a', session('2026-07-13T08:00:00.000Z', 40));
+    const repository = new AnalyticsRepository(store);
+
+    await assert.rejects(
+      repository.compact(new Date('2026-07-17T00:00:00.000Z')),
+      (error) => error instanceof AnalyticsStorageError
+        && error.message === 'Daily aggregate conflict',
+    );
+    assert.equal(store.entries.has('sessions/a'), true);
+    assert.deepEqual(store.calls.delete, []);
+  }
 });
 
 test('malformed sessions are excluded from datasets and left untouched by compaction', async () => {

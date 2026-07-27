@@ -637,13 +637,20 @@ h3 {
   padding: 1.3rem;
 }
 
-.avatar {
+.avatar-frame {
   width: 100%;
   max-width: 18rem;
   aspect-ratio: 1;
-  height: auto;
+  overflow: hidden;
   border: 1px solid var(--line-strong);
+}
+
+.avatar {
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+  transform: translateY(3%) scale(1.32);
   filter: grayscale(0.25) contrast(1.05);
 }
 
@@ -1206,7 +1213,7 @@ h3 {
     grid-template-columns: 1fr;
   }
 
-  .avatar {
+  .avatar-frame {
     max-width: none;
   }
 

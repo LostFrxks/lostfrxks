@@ -1094,7 +1094,7 @@ test('achievement card links sit on the same bottom baseline', async ({ page }) 
 
   const cardsWithLinks = page.locator('.achievement-card').filter({ has: page.locator('a') });
   await cardsWithLinks.first().scrollIntoViewIfNeeded();
-  await expect(cardsWithLinks).toHaveCount(5);
+  await expect(cardsWithLinks).toHaveCount(6);
 
   const linkOffsets = await cardsWithLinks.evaluateAll((cards) =>
     cards.map((card) => {
@@ -1350,7 +1350,7 @@ test('contact links include real email LinkedIn Telegram and Instagram profiles'
   await page.locator('.nav-links a[href="#contact"]').click();
   await expect(page.getByRole('link', { name: /\+996 501 271 007/i })).toHaveCount(0);
   await expect(page.locator('a[href^="tel:"]')).toHaveCount(0);
-  await expect(page.getByRole('link', { name: /lostfrxks@gmail\.com/i })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: /^Email$/i })).toHaveAttribute(
     'href',
     'mailto:lostfrxks@gmail.com'
   );
@@ -1362,20 +1362,24 @@ test('contact links include real email LinkedIn Telegram and Instagram profiles'
     'href',
     'https://t.me/lostfrxks'
   );
-  await expect(page.getByRole('link', { name: /lostfrxks Instagram profile/i })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: /^Instagram$/i })).toHaveAttribute(
     'href',
     'https://www.instagram.com/lostfrxks/'
   );
 });
 
-test('ascii torus artifact is kept in the DOM but hidden on production', async ({ page }) => {
+test('ascii torus artifact is visible and interactive on production', async ({ page }) => {
   await page.goto('/');
   await enterPortfolio(page);
 
   const artifact = page.locator('#ascii-torus');
+  const output = artifact.locator('[data-ascii-torus-output]');
+
   await expect(artifact).toHaveCount(1);
-  await expect(artifact).toBeHidden();
-  await expect(artifact).toHaveAttribute('hidden', '');
+  await expect(artifact).toBeVisible();
+  await expect(artifact).not.toHaveAttribute('hidden', '');
   await expect(artifact).toHaveAttribute('data-ascii-torus', 'interactive');
-  await expect(artifact.locator('[data-ascii-torus-output]')).toHaveCount(1);
+  await artifact.scrollIntoViewIfNeeded();
+  await expect(artifact).toHaveAttribute('data-torus-reveal', 'complete', { timeout: 2500 });
+  await expect(output).toContainText(/[.@#$*+=:;~\-_/<>01]{12,}/);
 });

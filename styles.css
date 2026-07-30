@@ -1172,17 +1172,12 @@ h3 {
 }
 
 @media (max-width: 680px) {
+  html {
+    font-size: 87.5%;
+  }
+
   .site-header {
-    align-items: center;
-    justify-content: center;
-  }
-
-  .brand {
     display: none;
-  }
-
-  .nav-links {
-    justify-content: center;
   }
 
   .section-band {
@@ -1190,6 +1185,7 @@ h3 {
   }
 
   .hero {
+    min-height: 100vh;
     padding-top: 2rem;
   }
 
@@ -1241,6 +1237,11 @@ h3 {
     justify-content: center;
   }
 
+  .command-link,
+  .contact-actions a {
+    min-height: 44px;
+  }
+
   .intro-name {
     --intro-name-spacing: clamp(0.22rem, 1.25vw, 0.42rem);
     font-size: clamp(1.55rem, 9vw, 3.2rem);
@@ -1250,13 +1251,8 @@ h3 {
     grid-template-columns: 1fr;
   }
 
-  .ascii-torus-shell {
-    min-height: auto;
-  }
-
-  .ascii-torus-output {
-    min-height: auto;
-    font-size: clamp(0.28rem, 1.35vw, 0.46rem);
+  .ascii-torus-band {
+    display: none;
   }
 }
 

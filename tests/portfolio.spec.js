@@ -1232,15 +1232,21 @@ test('matrix rain includes rare vertical easter egg words', async ({ page }) => 
   expect(sample).toBe(true);
 });
 
-test('mobile layout keeps primary identity and actions reachable', async ({ page }) => {
+test('mobile layout removes navigation and keeps compact primary content reachable', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await enterPortfolio(page);
 
+  await expect(page.locator('.site-header')).toBeHidden();
   await expect(page.locator('.brand')).toBeHidden();
+  await expect(page.locator('.nav-links')).toBeHidden();
+  await expect(page.locator('html')).toHaveCSS('font-size', '14px');
   await expect(page.getByRole('heading', { name: /Artur Usenov/i })).toBeVisible();
-  await expect(page.locator('.hero-actions').getByRole('link', { name: /Open GitHub/i })).toBeVisible();
-  await expect(page.locator('.nav-links a[href="#projects"]')).toBeVisible();
+
+  const githubAction = page.locator('.hero-actions').getByRole('link', { name: /Open GitHub/i });
+  await expect(githubAction).toBeVisible();
+  const githubActionBox = await githubAction.boundingBox();
+  expect(githubActionBox.height).toBeGreaterThanOrEqual(44);
   await expect(page.locator('.command-dock')).toHaveCount(0);
 
   const avatarBox = await page.locator('.avatar').boundingBox();
@@ -1279,7 +1285,11 @@ test('mobile project cards reveal individually as their column items enter view'
 
   const projects = page.locator('#projects');
   const projectCards = page.locator('#projects .project-card');
-  await page.locator('.nav-links a[href="#projects"]').click();
+  const firstProjectCardScrollY = await projectCards.first().evaluate((element) => {
+    const top = element.getBoundingClientRect().top + window.scrollY;
+    return Math.max(0, top - window.innerHeight * 0.35);
+  });
+  await jumpToScrollY(page, firstProjectCardScrollY);
 
   await expect(projectCards).toHaveCount(7);
   await expect(projects).toHaveClass(/matrix-revealed/);
@@ -1315,13 +1325,21 @@ test('mobile stack cards reveal one-by-one down the column', async ({ page }) =>
 
   const stack = page.locator('#stack');
   const stackCards = page.locator('#stack .stack-card');
-  await page.locator('.nav-links a[href="#stack"]').click();
+  const firstStackCardScrollY = await stackCards.first().evaluate((element) => {
+    const top = element.getBoundingClientRect().top + window.scrollY;
+    return Math.max(0, top - window.innerHeight * 0.35);
+  });
+  await jumpToScrollY(page, firstStackCardScrollY);
 
   await expect(stack).toHaveClass(/matrix-revealed/);
   await expect(stackCards.first()).toHaveClass(/matrix-revealed/);
   await expect(stackCards.nth(4)).not.toHaveClass(/matrix-revealed/);
 
-  await stackCards.nth(4).scrollIntoViewIfNeeded();
+  const fifthStackCardScrollY = await stackCards.nth(4).evaluate((element) => {
+    const top = element.getBoundingClientRect().top + window.scrollY;
+    return Math.max(0, top - window.innerHeight * 0.65);
+  });
+  await jumpToScrollY(page, fifthStackCardScrollY);
 
   await expect(stackCards.nth(4)).toHaveClass(/matrix-revealed/);
 });
@@ -1368,9 +1386,33 @@ test('contact links include real email LinkedIn Telegram and Instagram profiles'
   );
 });
 
+test('mobile hides the ascii torus without initializing its renderer', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await enterPortfolio(page);
+
+  const artifact = page.locator('#ascii-torus');
+  await expect(artifact).toBeHidden();
+
+  const runtime = await artifact.evaluate((element) => ({
+    debugApi: typeof window.__asciiTorusDebug,
+    rotation: element.getAttribute('data-torus-rotation'),
+    output: element.querySelector('[data-ascii-torus-output]').textContent,
+  }));
+
+  expect(runtime).toEqual({
+    debugApi: 'undefined',
+    rotation: null,
+    output: '',
+  });
+});
+
 test('ascii torus artifact is visible and interactive on production', async ({ page }) => {
   await page.goto('/');
   await enterPortfolio(page);
+
+  await expect(page.locator('.site-header')).toBeVisible();
+  await expect(page.locator('html')).toHaveCSS('font-size', '16px');
 
   const artifact = page.locator('#ascii-torus');
   const output = artifact.locator('[data-ascii-torus-output]');

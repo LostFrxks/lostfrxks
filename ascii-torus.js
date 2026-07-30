@@ -1,6 +1,7 @@
 (function () {
   const root = document.getElementById('ascii-torus');
-  if (!root || root.hidden) {
+  const mobileViewport = window.matchMedia('(max-width: 680px)').matches;
+  if (!root || root.hidden || mobileViewport) {
     return;
   }
 

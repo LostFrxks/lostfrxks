@@ -4,7 +4,7 @@
 
 ## Goal
 
-Help search engines associate `https://lostfrxks.com/` with Artur Usenov across the legitimate public name variants `Artur Usenov`, `Artur U`, `Артур Усенов`, `Усенов Артур`, and `Артур У`, without changing any visible page content or layout.
+Help search engines associate `https://lostfrxks.com/` with the full public name forms `Artur Usenov`, `Артур Усенов`, and `Усенов Артур`, so prefix queries such as `Artur U` and `Артур У` can resolve naturally, without changing any visible page content or layout.
 
 This work can improve entity recognition and search-result relevance, but it cannot guarantee Google autocomplete suggestions because autocomplete also depends on aggregate query demand and Google systems outside the site's control.
 
@@ -14,10 +14,10 @@ The implementation will make metadata-only and crawler-facing changes:
 
 - Keep the existing visible HTML, title, headings, copy, CSS, JavaScript, and interactions unchanged.
 - Add a self-referencing canonical URL for `https://lostfrxks.com/`.
-- Update the non-visible meta description to identify `Artur Usenov` and `Артур Усенов` naturally, without repeating every abbreviation.
+- Update the non-visible meta description to identify `Artur Usenov`, `Артур Усенов`, and `Усенов Артур` naturally, without repeating partial-name prefixes.
 - Add one valid JSON-LD `ProfilePage` object whose `mainEntity` is a `Person`.
 - Set the canonical person name to `Artur Usenov`.
-- Set `alternateName` to the approved variants: `Artur U`, `Артур Усенов`, `Усенов Артур`, `Артур У`, and `lostfrxks`.
+- Set `alternateName` only to `lostfrxks`, the alternate public identifier already visible throughout the page.
 - Include the canonical site URL, crawlable profile image, current backend-engineer description, and public `sameAs` identity links already present on the site.
 - Add `robots.txt` that allows normal crawling and advertises the sitemap.
 - Add a one-URL `sitemap.xml` containing only the canonical homepage.
@@ -35,7 +35,7 @@ The JSON-LD block will use this shape:
   - `@type`: `Person`
   - `@id`: `https://lostfrxks.com/#person`
   - `name`: `Artur Usenov`
-  - `alternateName`: the five approved alternate identifiers
+  - `alternateName`: `lostfrxks`
   - `url`: `https://lostfrxks.com/`
   - `image`: `https://lostfrxks.com/assets/artur-usenov-profile.webp`
   - `jobTitle`: `Backend / AI Backend Engineer`
@@ -56,7 +56,7 @@ Automated checks will verify that:
 
 - the existing visible page title and primary heading remain unchanged;
 - the canonical URL is exact and unique;
-- the JSON-LD parses as JSON and contains the exact approved name variants and public identity URLs;
+- the JSON-LD parses as JSON, contains only the visible `lostfrxks` alternate identifier, and includes the public identity URLs;
 - the JSON-LD contains no private contact fields;
 - `robots.txt` allows crawling and references the exact sitemap URL;
 - `sitemap.xml` is well-formed and contains only the canonical homepage;
@@ -74,3 +74,4 @@ The implementation will be committed separately from this design document, pushe
 - [Google supported meta tags](https://developers.google.com/search/docs/crawling-indexing/special-tags)
 - [Google canonical URL guidance](https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls)
 - [Google sitemap guidance](https://developers.google.com/search/docs/crawling-indexing/sitemaps/overview)
+- [Google structured data quality guidelines](https://developers.google.com/search/docs/appearance/structured-data/sd-policies)

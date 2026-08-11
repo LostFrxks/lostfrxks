@@ -53,7 +53,7 @@ test('head publishes canonical identity metadata without changing visible positi
   await page.goto('/');
 
   const description =
-    'Artur Usenov (Артур Усенов), Backend / AI Backend Engineer from Bishkek building marketplace microservices, Kubernetes platforms, Qdrant search and LLM pipelines.';
+    'Artur Usenov — Артур Усенов (Усенов Артур), Backend / AI Backend Engineer from Bishkek building marketplace microservices, Kubernetes platforms, Qdrant search and LLM pipelines.';
 
   await expect(page).toHaveTitle('Artur Usenov — Backend / AI Backend Engineer');
   await expect(page.locator('h1#hero-title')).toHaveText('Artur Usenov');
@@ -78,7 +78,7 @@ test('head publishes canonical identity metadata without changing visible positi
       '@type': 'Person',
       '@id': 'https://lostfrxks.com/#person',
       name: 'Artur Usenov',
-      alternateName: ['Artur U', 'Артур Усенов', 'Усенов Артур', 'Артур У', 'lostfrxks'],
+      alternateName: 'lostfrxks',
       url: 'https://lostfrxks.com/',
       image: 'https://lostfrxks.com/assets/artur-usenov-profile.webp',
       jobTitle: 'Backend / AI Backend Engineer',

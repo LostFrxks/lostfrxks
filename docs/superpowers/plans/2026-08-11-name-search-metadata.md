@@ -32,7 +32,7 @@ test('head publishes canonical identity metadata without changing visible positi
   await page.goto('/');
 
   const description =
-    'Artur Usenov (Артур Усенов), Backend / AI Backend Engineer from Bishkek building marketplace microservices, Kubernetes platforms, Qdrant search and LLM pipelines.';
+    'Artur Usenov — Артур Усенов (Усенов Артур), Backend / AI Backend Engineer from Bishkek building marketplace microservices, Kubernetes platforms, Qdrant search and LLM pipelines.';
 
   await expect(page).toHaveTitle('Artur Usenov — Backend / AI Backend Engineer');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Artur Usenov');
@@ -57,7 +57,7 @@ test('head publishes canonical identity metadata without changing visible positi
       '@type': 'Person',
       '@id': 'https://lostfrxks.com/#person',
       name: 'Artur Usenov',
-      alternateName: ['Artur U', 'Артур Усенов', 'Усенов Артур', 'Артур У', 'lostfrxks'],
+      alternateName: 'lostfrxks',
       url: 'https://lostfrxks.com/',
       image: 'https://lostfrxks.com/assets/artur-usenov-profile.webp',
       jobTitle: 'Backend / AI Backend Engineer',
@@ -96,12 +96,12 @@ In `index.html`, keep the existing `<title>` and visible document body unchanged
 ```html
 <meta
   name="description"
-  content="Artur Usenov (Артур Усенов), Backend / AI Backend Engineer from Bishkek building marketplace microservices, Kubernetes platforms, Qdrant search and LLM pipelines."
+  content="Artur Usenov — Артур Усенов (Усенов Артур), Backend / AI Backend Engineer from Bishkek building marketplace microservices, Kubernetes platforms, Qdrant search and LLM pipelines."
 >
 <meta property="og:title" content="Artur Usenov — Backend / AI Backend Engineer">
 <meta
   property="og:description"
-  content="Artur Usenov (Артур Усенов), Backend / AI Backend Engineer from Bishkek building marketplace microservices, Kubernetes platforms, Qdrant search and LLM pipelines."
+  content="Artur Usenov — Артур Усенов (Усенов Артур), Backend / AI Backend Engineer from Bishkek building marketplace microservices, Kubernetes platforms, Qdrant search and LLM pipelines."
 >
 ```
 
@@ -118,7 +118,7 @@ Immediately after the unchanged `<title>`, add:
       "@type": "Person",
       "@id": "https://lostfrxks.com/#person",
       "name": "Artur Usenov",
-      "alternateName": ["Artur U", "Артур Усенов", "Усенов Артур", "Артур У", "lostfrxks"],
+      "alternateName": "lostfrxks",
       "url": "https://lostfrxks.com/",
       "image": "https://lostfrxks.com/assets/artur-usenov-profile.webp",
       "jobTitle": "Backend / AI Backend Engineer",
@@ -321,6 +321,6 @@ Expected: GitHub accepts the fast-forward push. Poll cache-busted production URL
 
 - [ ] **Step 6: Run the public Chrome smoke test**
 
-Using `/usr/bin/google-chrome-stable`, verify the production homepage still has the unchanged title and H1, exactly one canonical link, exactly one parseable JSON-LD profile with the approved aliases, `/robots.txt` references `/sitemap.xml`, and `/sitemap.xml` contains only `https://lostfrxks.com/`.
+Using `/usr/bin/google-chrome-stable`, verify the production homepage still has the unchanged title and H1, exactly one canonical link, the full English and Cyrillic names in the meta description, exactly one parseable JSON-LD profile whose only `alternateName` is the visible `lostfrxks` handle, `/robots.txt` references `/sitemap.xml`, and `/sitemap.xml` contains only `https://lostfrxks.com/`.
 
 Expected: every production assertion passes; report that metadata is live while noting that search recrawling and autocomplete changes are asynchronous and not guaranteed by deployment.

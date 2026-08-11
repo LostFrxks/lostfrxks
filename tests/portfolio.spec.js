@@ -99,6 +99,37 @@ test('head publishes canonical identity metadata without changing visible positi
   expect(serializedProfile).not.toContain('+996');
 });
 
+test('crawler endpoints publish only the canonical portfolio URL', async ({ page }) => {
+  const robotsResponse = await page.request.get('/robots.txt');
+  expect(robotsResponse.status()).toBe(200);
+  expect(robotsResponse.headers()['content-type']).toContain('text/plain');
+  expect(await robotsResponse.text()).toBe(
+    'User-agent: *\nAllow: /\n\nSitemap: https://lostfrxks.com/sitemap.xml\n'
+  );
+
+  const sitemapResponse = await page.request.get('/sitemap.xml');
+  expect(sitemapResponse.status()).toBe(200);
+  expect(sitemapResponse.headers()['content-type']).toMatch(/application\/xml|text\/xml/);
+  const sitemap = await sitemapResponse.text();
+
+  const parsedSitemap = await page.evaluate((xml) => {
+    const document = new DOMParser().parseFromString(xml, 'application/xml');
+    return {
+      parserErrors: document.querySelectorAll('parsererror').length,
+      locations: [...document.querySelectorAll('loc')].map((node) => node.textContent),
+      changeFrequencies: document.querySelectorAll('changefreq').length,
+      priorities: document.querySelectorAll('priority').length,
+    };
+  }, sitemap);
+
+  expect(parsedSitemap).toEqual({
+    parserErrors: 0,
+    locations: ['https://lostfrxks.com/'],
+    changeFrequencies: 0,
+    priorities: 0,
+  });
+});
+
 test('site exposes a neon terminal favicon', async ({ page }) => {
   await page.goto('/');
 

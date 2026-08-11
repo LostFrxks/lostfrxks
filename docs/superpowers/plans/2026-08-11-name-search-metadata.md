@@ -297,7 +297,7 @@ git diff --stat cff710c..HEAD
 git log --oneline --decorate cff710c..HEAD
 ```
 
-Expected: clean feature branch; the committed plan is followed by two implementation commits whose code changes are limited to `index.html`, `robots.txt`, `sitemap.xml`, and `tests/portfolio.spec.js`.
+Expected: clean feature branch; the committed plan is followed by identity metadata, crawler discovery, and policy-alignment commits. Runtime changes remain limited to `index.html`, `robots.txt`, `sitemap.xml`, and `tests/portfolio.spec.js`; the policy-alignment commit also synchronizes this plan and the design spec with the reviewed implementation.
 
 - [ ] **Step 4: Integrate the verified feature branch into main**
 

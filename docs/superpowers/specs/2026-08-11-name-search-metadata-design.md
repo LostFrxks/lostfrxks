@@ -66,7 +66,7 @@ After pushing `main`, production verification will confirm HTTP 200 responses an
 
 ## Release Boundary
 
-The implementation will be committed separately from this design document, pushed to `main`, and verified on Netlify production. Search-engine recrawling is asynchronous; deployment proves that the metadata is publicly available, not that autocomplete suggestions have already changed.
+The design, implementation, and any review-driven policy alignment will remain separately reviewable in Git history, then be pushed to `main` and verified on Netlify production. Search-engine recrawling is asynchronous; deployment proves that the metadata is publicly available, not that autocomplete suggestions have already changed.
 
 ## References
 

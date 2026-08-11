@@ -49,22 +49,54 @@ async function jumpToScrollY(page, y) {
   );
 }
 
-test('browser title targets backend and AI backend roles', async ({ page }) => {
+test('head publishes canonical identity metadata without changing visible positioning', async ({ page }) => {
   await page.goto('/');
 
+  const description =
+    'Artur Usenov (Артур Усенов), Backend / AI Backend Engineer from Bishkek building marketplace microservices, Kubernetes platforms, Qdrant search and LLM pipelines.';
+
   await expect(page).toHaveTitle('Artur Usenov — Backend / AI Backend Engineer');
-  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
-    'content',
-    'Backend / AI Backend Engineer from Bishkek working across marketplace microservices, event-driven systems, Kubernetes delivery, AI catalog automation, Qdrant vector search and LLM pipelines.'
-  );
+  await expect(page.locator('h1#hero-title')).toHaveText('Artur Usenov');
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://lostfrxks.com/');
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', description);
   await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
     'content',
     'Artur Usenov — Backend / AI Backend Engineer'
   );
-  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute(
-    'content',
-    'Backend / AI Backend Engineer from Bishkek working across marketplace microservices, event-driven systems, Kubernetes delivery, AI catalog automation, Qdrant vector search and LLM pipelines.'
-  );
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', description);
+  await expect(page.locator('meta[name="keywords"]')).toHaveCount(0);
+
+  const jsonLdScripts = page.locator('script[type="application/ld+json"]');
+  await expect(jsonLdScripts).toHaveCount(1);
+  const profile = JSON.parse(await jsonLdScripts.textContent());
+
+  expect(profile).toEqual({
+    '@context': 'https://schema.org',
+    '@type': 'ProfilePage',
+    url: 'https://lostfrxks.com/',
+    mainEntity: {
+      '@type': 'Person',
+      '@id': 'https://lostfrxks.com/#person',
+      name: 'Artur Usenov',
+      alternateName: ['Artur U', 'Артур Усенов', 'Усенов Артур', 'Артур У', 'lostfrxks'],
+      url: 'https://lostfrxks.com/',
+      image: 'https://lostfrxks.com/assets/artur-usenov-profile.webp',
+      jobTitle: 'Backend / AI Backend Engineer',
+      description:
+        'Backend engineer working across marketplace microservices, platform delivery and AI-powered catalog automation.',
+      sameAs: [
+        'https://github.com/LostFrxks',
+        'https://www.linkedin.com/in/artur-usenov-424108395/',
+        'https://leetcode.com/u/lostfrxks/',
+        'https://t.me/lostfrxks',
+        'https://www.instagram.com/lostfrxks/',
+      ],
+    },
+  });
+
+  const serializedProfile = JSON.stringify(profile);
+  expect(serializedProfile).not.toContain('lostfrxks@gmail.com');
+  expect(serializedProfile).not.toContain('+996');
 });
 
 test('site exposes a neon terminal favicon', async ({ page }) => {

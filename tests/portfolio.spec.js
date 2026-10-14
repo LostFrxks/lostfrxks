@@ -1488,3 +1488,41 @@ test('ascii torus artifact is visible and interactive on production', async ({ p
   await expect(artifact).toHaveAttribute('data-torus-reveal', 'complete', { timeout: 2500 });
   await expect(output).toContainText(/[.@#$*+=:;~\-_/<>01]{12,}/);
 });
+
+test('ascii torus follows dragging and recovers when pointer capture is lost', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await enterPortfolio(page);
+  const artifact = page.locator('#ascii-torus');
+  const shell = artifact.locator('.ascii-torus-shell');
+  await artifact.scrollIntoViewIfNeeded();
+  await expect(artifact).toHaveAttribute('data-torus-reveal', 'complete');
+  const box = await shell.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await expect(shell).toHaveClass(/is-dragging/);
+  const before = await artifact.getAttribute('data-torus-rotation');
+  await page.mouse.move(box.x + box.width / 2 + 100, box.y + box.height / 2 + 30, { steps: 12 });
+  expect(await artifact.getAttribute('data-torus-rotation')).not.toBe(before);
+  await expect(artifact).toHaveAttribute('data-torus-clipped-points', '0');
+  await shell.evaluate(element => element.releasePointerCapture(1));
+  await expect(shell).not.toHaveClass(/is-dragging/);
+  await page.mouse.up();
+  const released = await artifact.getAttribute('data-torus-rotation');
+  await expect.poll(() => artifact.getAttribute('data-torus-rotation')).not.toBe(released);
+  expect(errors).toEqual([]);
+});
+
+test('ascii torus stays static when the visitor requests reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await enterPortfolio(page);
+  const artifact = page.locator('#ascii-torus');
+  await artifact.scrollIntoViewIfNeeded();
+  await expect(artifact).toHaveAttribute('data-torus-reveal', 'complete');
+  const before = await artifact.locator('[data-ascii-torus-output]').textContent();
+  await page.waitForTimeout(250);
+  expect(await artifact.locator('[data-ascii-torus-output]').textContent()).toBe(before);
+  await expect(artifact).toHaveAttribute('data-torus-clipped-points', '0');
+});

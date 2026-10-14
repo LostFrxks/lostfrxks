@@ -19,22 +19,23 @@
   const distance = 2.9;
   const scale = 33;
   const dragRotationSpeed = 0.0068;
-  const dragInertiaSpeed = 0.00052;
+  // Angular speeds are radians per second, independent of display refresh rate.
+  const idleVelocity = reducedMotion ? [0, 0, 0] : [0.135, 0.3, 0.12];
+  const damping = [-60 * Math.log(0.992), -60 * Math.log(0.992), -60 * Math.log(0.994)];
 
   let debugRotationX = 0.78;
   let debugRotationY = -0.34;
   let debugRotationZ = 0.18;
-  let velocityX = reducedMotion ? 0 : 0.0036;
-  let velocityY = reducedMotion ? 0 : 0.008;
-  let velocityZ = reducedMotion ? 0 : 0.0024;
-  let isDragging = false;
+  let velocity = reducedMotion ? [0, 0, 0] : [0.216, 0.48, 0.144];
+  let activePointerId = null;
   let lastPointerX = 0;
   let lastPointerY = 0;
+  let lastPointerTime = 0;
+  let previousFrameTime = null;
   let frameId = null;
   let revealStarted = false;
   let revealStartTime = 0;
   let revealProgress = 0;
-  let lastRenderedLines = Array(height).fill(' '.repeat(width));
 
   function multiplyMatrices(a, b) {
     return [
@@ -136,64 +137,17 @@
       }
     }
 
-    const centeredChars = centerGlyphBuffer(chars);
+    // Project around the fixed 3D origin; glyph bounds change as the torus rotates.
     const lines = [];
     for (let row = 0; row < height; row += 1) {
-      lines.push(centeredChars.slice(row * width, row * width + width).join(''));
+      lines.push(chars.slice(row * width, row * width + width).join(''));
     }
 
-    lastRenderedLines = lines;
     output.textContent = maskRevealLines(lines).join('\n');
     root.dataset.torusRotation = [debugRotationX, debugRotationY, debugRotationZ]
       .map((value) => value.toFixed(3))
       .join(',');
     root.dataset.torusClippedPoints = String(clippedPoints);
-  }
-
-  function centerGlyphBuffer(chars) {
-    const occupied = [];
-    chars.forEach((char, index) => {
-      if (char !== ' ') {
-        occupied.push({
-          column: index % width,
-          row: Math.floor(index / width),
-        });
-      }
-    });
-
-    if (!occupied.length) {
-      return chars;
-    }
-
-    const minColumn = Math.min(...occupied.map((point) => point.column));
-    const maxColumn = Math.max(...occupied.map((point) => point.column));
-    const minRow = Math.min(...occupied.map((point) => point.row));
-    const maxRow = Math.max(...occupied.map((point) => point.row));
-    const shiftX = Math.round(width / 2 - (minColumn + maxColumn + 1) / 2);
-    const shiftY = Math.round(height / 2 - (minRow + maxRow + 1) / 2);
-
-    if (shiftX === 0 && shiftY === 0) {
-      return chars;
-    }
-
-    const centered = Array(width * height).fill(' ');
-    chars.forEach((char, index) => {
-      if (char === ' ') {
-        return;
-      }
-
-      const column = index % width;
-      const row = Math.floor(index / width);
-      const shiftedColumn = column + shiftX;
-      const shiftedRow = row + shiftY;
-      if (shiftedColumn < 0 || shiftedColumn >= width || shiftedRow < 0 || shiftedRow >= height) {
-        return;
-      }
-
-      centered[shiftedColumn + shiftedRow * width] = char;
-    });
-
-    return centered;
   }
 
   function maskRevealLines(lines) {
@@ -235,33 +189,38 @@
     renderTorus();
   }
 
-  function tick() {
-    if (!revealStarted && root.classList.contains('matrix-revealed')) {
-      startReveal();
-    }
+  function advanceMotion(seconds) {
+    // Integrate damped velocity analytically so inertia also respects elapsed time.
+    const angles = velocity.map((speed, axis) => {
+      const target = idleVelocity[axis];
+      const decay = Math.exp(-damping[axis] * seconds);
+      velocity[axis] = target + (speed - target) * decay;
+      return target * seconds + (speed - target) * (1 - decay) / damping[axis];
+    });
+    applyScreenRotation(...angles);
+  }
 
+  function scheduleFrame() {
+    if (!reducedMotion && document.visibilityState !== 'hidden' && frameId === null) {
+      frameId = window.requestAnimationFrame(tick);
+    }
+  }
+
+  function tick(timestamp) {
+    frameId = null;
+    if (document.visibilityState === 'hidden') {
+      previousFrameTime = null;
+      return;
+    }
+    const seconds = previousFrameTime === null ? 0 : Math.min(0.05, Math.max(0, (timestamp - previousFrameTime) / 1000));
+    previousFrameTime = timestamp;
+    if (!revealStarted && root.classList.contains('matrix-revealed')) startReveal();
     if (revealStarted && revealProgress < 1) {
       revealProgress = Math.min(1, (performance.now() - revealStartTime) / 1150);
     }
-
-    if (!isDragging) {
-      applyScreenRotation(velocityX, velocityY, velocityZ);
-      velocityX *= 0.992;
-      velocityY *= 0.992;
-      velocityZ *= 0.994;
-
-      if (!reducedMotion) {
-        velocityX += 0.000018;
-        velocityY += 0.00004;
-        velocityZ += 0.000012;
-      }
-    }
-
+    if (activePointerId === null) advanceMotion(seconds);
     renderTorus();
-
-    if (!reducedMotion) {
-      frameId = window.requestAnimationFrame(tick);
-    }
+    scheduleFrame();
   }
 
   function setState(text) {
@@ -271,48 +230,49 @@
   }
 
   function onPointerDown(event) {
-    if (!shell) {
-      return;
-    }
-
-    isDragging = true;
+    if (!shell || activePointerId !== null || event.isPrimary === false || event.button !== 0) return;
+    activePointerId = event.pointerId;
     lastPointerX = event.clientX;
     lastPointerY = event.clientY;
-    velocityX = 0;
-    velocityY = 0;
-    velocityZ = 0;
+    lastPointerTime = performance.now();
+    velocity = [0, 0, 0];
     shell.classList.add('is-dragging');
-    shell.setPointerCapture?.(event.pointerId);
+    try { shell.setPointerCapture?.(event.pointerId); } catch {}
     setState('locked to input');
   }
 
   function onPointerMove(event) {
-    if (!isDragging) {
-      return;
-    }
-
+    if (activePointerId === null || event.pointerId !== activePointerId) return;
     const deltaX = event.clientX - lastPointerX;
     const deltaY = event.clientY - lastPointerY;
     const angleY = -deltaX * dragRotationSpeed;
     const angleX = -deltaY * dragRotationSpeed;
+    const now = performance.now();
+    const seconds = Math.max(0.008, (now - lastPointerTime) / 1000);
     lastPointerX = event.clientX;
     lastPointerY = event.clientY;
+    lastPointerTime = now;
     applyScreenRotation(angleX, angleY, 0);
-    velocityY = -deltaX * dragInertiaSpeed;
-    velocityX = -deltaY * dragInertiaSpeed;
-    velocityZ = 0;
+    velocity = [angleX, angleY, 0].map(angle => Math.max(-3, Math.min(3, angle / seconds * 0.18)));
     renderTorus();
   }
 
   function onPointerUp(event) {
-    if (!isDragging) {
-      return;
-    }
-
-    isDragging = false;
+    if (activePointerId === null || event.pointerId !== activePointerId) return;
+    const pointerId = activePointerId;
+    activePointerId = null;
+    // A held pointer that has stopped moving should not impart stale momentum.
+    if (performance.now() - lastPointerTime > 100) velocity = [0, 0, 0];
     shell?.classList.remove('is-dragging');
-    shell?.releasePointerCapture?.(event.pointerId);
+    try { if (shell?.hasPointerCapture?.(pointerId)) shell.releasePointerCapture(pointerId); } catch {}
     setState('inertia drift');
+  }
+
+  function pause() {
+    if (frameId !== null) window.cancelAnimationFrame(frameId);
+    frameId = null;
+    previousFrameTime = null;
+    if (activePointerId !== null) onPointerUp({ pointerId: activePointerId });
   }
 
   window.__asciiTorusDebug = {
@@ -335,7 +295,7 @@
     shell.addEventListener('pointermove', onPointerMove);
     shell.addEventListener('pointerup', onPointerUp);
     shell.addEventListener('pointercancel', onPointerUp);
-    shell.addEventListener('pointerleave', onPointerUp);
+    shell.addEventListener('lostpointercapture', onPointerUp);
   }
 
   renderTorus();
@@ -343,13 +303,19 @@
     startReveal();
     setState('static render');
   } else {
-    frameId = window.requestAnimationFrame(tick);
+    scheduleFrame();
   }
 
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') pause();
+    else scheduleFrame();
+  });
+  window.addEventListener('blur', () => {
+    if (activePointerId !== null) onPointerUp({ pointerId: activePointerId });
+  });
+
   window.addEventListener('beforeunload', () => {
-    if (frameId) {
-      window.cancelAnimationFrame(frameId);
-    }
+    pause();
     revealObserver.disconnect();
   });
 })();

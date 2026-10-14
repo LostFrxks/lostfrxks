@@ -1,7 +1,8 @@
 const ALPHABET = '01{}[]<>/\\$#@ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const DECRYPT_MS = 760;
-const REVEAL_AT_MS = 860;
-const COMPLETE_AT_MS = 1280;
+const HOLD_MS = 700;
+const REVEAL_AT_MS = DECRYPT_MS + HOLD_MS;
+const COMPLETE_AT_MS = REVEAL_AT_MS + 420;
 
 // One clock owns the complete transition; slow frames never add chained delays.
 export function createIntroController({ screen, name, browserWindow = window, browserDocument = document, onReveal, onComplete }) {
@@ -52,7 +53,7 @@ export function createIntroController({ screen, name, browserWindow = window, br
       if (frame !== lastCipherFrame) { renderCipher(Math.floor(letterCount * progress), frame); lastCipherFrame = frame; }
       screen.style.setProperty('--intro-progress', progress.toFixed(3));
       if (elapsed >= DECRYPT_MS) {
-        name.textContent = finalText;
+        if (name.textContent !== finalText) name.textContent = finalText;
         screen.dataset.introPhase = revealed ? 'exiting' : 'resolved';
         screen.classList.add('intro-resolved');
       }

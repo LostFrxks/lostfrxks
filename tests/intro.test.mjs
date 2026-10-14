@@ -15,19 +15,21 @@ async function harness({ reduced = false } = {}) {
   return { name, screen, controller, classes, click() { listeners.get('click')?.(); }, step(t) { now = t; const callbacks = [...frames.values()]; frames.clear(); for (const cb of callbacks) cb(t); }, visibility(state) { doc.visibilityState = state; docListeners.get('visibilitychange')?.(); }, get pending() { return frames.size; }, get reveals() { return reveals; }, get completions() { return completions; } };
 }
 
-test('intro resolves identity, reveals once and completes within 1.5 seconds', async () => {
+test('intro resolves identity, reveals once and holds the resolved name before completing within two seconds', async () => {
   const h = await harness();
   h.step(0); h.click(); h.click();
   h.step(400); assert.notEqual(h.name.textContent, 'Artur Usenov');
   h.step(760); assert.equal(h.name.textContent, 'Artur Usenov');
   assert.equal(h.reveals, 0);
-  h.step(900); assert.equal(h.reveals, 1);
-  h.step(1300); assert.equal(h.completions, 1); assert.equal(h.pending, 0);
+  h.step(1300); assert.equal(h.name.textContent, 'Artur Usenov'); assert.equal(h.reveals, 0);
+  assert.equal(h.screen.dataset.introPhase, 'resolved');
+  h.step(1460); assert.equal(h.reveals, 1);
+  h.step(1900); assert.equal(h.completions, 1); assert.equal(h.pending, 0);
   h.click(); h.step(2000); assert.equal(h.completions, 1);
 });
 
 test('slow frames cross all intro phases without extending chained delays', async () => {
-  const h = await harness();h.click();h.step(1400);
+  const h = await harness();h.click();h.step(2200);
   assert.equal(h.name.textContent, 'Artur Usenov');
   assert.equal(h.reveals, 1);assert.equal(h.completions, 1);
 });
@@ -42,7 +44,7 @@ test('hidden intro pauses and resumes without double callbacks', async () => {
   const h = await harness();h.click();h.step(300);h.visibility('hidden');
   assert.equal(h.pending, 0);h.step(10_000);assert.equal(h.completions, 0);
   h.visibility('visible');h.step(10_300);assert.notEqual(h.name.textContent, 'Artur Usenov');
-  h.step(11_100);assert.equal(h.completions, 1);assert.equal(h.reveals, 1);
+  h.step(11_700);assert.equal(h.completions, 1);assert.equal(h.reveals, 1);
 });
 
 test('destroy cancels pending intro updates and releases event listeners', async () => {

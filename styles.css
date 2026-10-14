@@ -176,7 +176,7 @@ button:focus-visible {
 
 .intro-revealing .intro-brackets { opacity: 0.9; }
 .intro-resolved .intro-name { text-shadow: 0 0 24px rgba(101, 231, 255, 0.6); }
-.intro-resolved::after { animation: unlockSweep 520ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.intro-exiting::after { animation: unlockSweep 420ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .intro-exiting { opacity: 0; pointer-events: none; }
 .intro-exiting .intro-name { opacity: 0; transform: translateY(-10px); }
 .intro-exiting .intro-brackets { opacity: 0; transform: translateY(12px); }

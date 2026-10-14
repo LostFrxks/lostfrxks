@@ -314,8 +314,8 @@ test('intro briefly settles the resolved identity before revealing the portfolio
     });
   });
 
-  expect(holdDuration).toBeGreaterThanOrEqual(60);
-  expect(holdDuration).toBeLessThan(300);
+  expect(holdDuration).toBeGreaterThanOrEqual(500);
+  expect(holdDuration).toBeLessThan(1000);
 });
 
 test('intro decrypts the Artur identity quickly while keeping it readable', async ({ page }) => {
@@ -494,7 +494,7 @@ test('intro reveal keeps Artur name transition free of zoom scaling', async ({ p
 
   await expect(page.locator('[data-intro-name]')).toHaveText('Artur Usenov');
   const finalBox = await page.locator('[data-intro-name]').boundingBox();
-  await expect(page.locator('#intro-screen')).toHaveClass(/intro-exiting/);
+  await page.waitForFunction(() => document.querySelector('#intro-screen')?.classList.contains('intro-exiting'));
   await page.waitForTimeout(180);
 
   expect(finalBox.width).toBeGreaterThanOrEqual(idleBox.width * 0.97);

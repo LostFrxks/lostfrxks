@@ -36,6 +36,7 @@
   let revealStarted = false;
   let revealStartTime = 0;
   let revealProgress = 0;
+  let inViewport = typeof window.IntersectionObserver !== 'function';
 
   function multiplyMatrices(a, b) {
     return [
@@ -201,17 +202,14 @@
   }
 
   function scheduleFrame() {
-    if (!reducedMotion && document.visibilityState !== 'hidden' && frameId === null) {
+    if (!reducedMotion && canRender() && frameId === null) {
       frameId = window.requestAnimationFrame(tick);
     }
   }
 
   function tick(timestamp) {
     frameId = null;
-    if (document.visibilityState === 'hidden') {
-      previousFrameTime = null;
-      return;
-    }
+    if (!canRender()) { pause(); return; }
     const seconds = previousFrameTime === null ? 0 : Math.min(0.05, Math.max(0, (timestamp - previousFrameTime) / 1000));
     previousFrameTime = timestamp;
     if (!revealStarted && root.classList.contains('matrix-revealed')) startReveal();
@@ -283,12 +281,28 @@
     startReveal,
   };
 
-  const revealObserver = new MutationObserver(() => {
-    if (root.classList.contains('matrix-revealed')) {
-      startReveal();
+  function canRender() {
+    return inViewport && window.innerWidth > 680 && document.visibilityState !== 'hidden' && !document.getElementById('intro-screen') && root.classList.contains('matrix-revealed');
+  }
+
+  function updateActivity() {
+    if (!canRender()) {
+      pause();
+      root.dataset.torusAnimationState = 'paused';
+      return;
     }
-  });
+    startReveal();
+    root.dataset.torusAnimationState = reducedMotion ? 'static' : 'running';
+    scheduleFrame();
+  }
+
+  const revealObserver = new MutationObserver(updateActivity);
   revealObserver.observe(root, { attributes: true, attributeFilter: ['class'] });
+  const viewportObserver = typeof window.IntersectionObserver === 'function' ? new window.IntersectionObserver(entries => {
+    inViewport = entries.some(entry => entry.isIntersecting);
+    updateActivity();
+  }) : null;
+  viewportObserver?.observe(root);
 
   if (shell && !reducedMotion) {
     shell.addEventListener('pointerdown', onPointerDown);
@@ -298,18 +312,10 @@
     shell.addEventListener('lostpointercapture', onPointerUp);
   }
 
-  renderTorus();
-  if (reducedMotion) {
-    startReveal();
-    setState('static render');
-  } else {
-    scheduleFrame();
-  }
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') pause();
-    else scheduleFrame();
-  });
+  updateActivity();
+  if (reducedMotion) setState('static render');
+  document.addEventListener('visibilitychange', updateActivity);
+  window.addEventListener('resize', updateActivity);
   window.addEventListener('blur', () => {
     if (activePointerId !== null) onPointerUp({ pointerId: activePointerId });
   });
@@ -317,5 +323,6 @@
   window.addEventListener('beforeunload', () => {
     pause();
     revealObserver.disconnect();
+    viewportObserver?.disconnect();
   });
 })();

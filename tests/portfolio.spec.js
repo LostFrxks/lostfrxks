@@ -278,7 +278,7 @@ test('matrix intro scrambles central text then decrypts into Artur identity', as
   await expect(page.locator('#intro-screen')).toBeHidden();
 });
 
-test('intro holds on the resolved Artur identity before revealing the portfolio', async ({ page }) => {
+test('intro briefly settles the resolved identity before revealing the portfolio', async ({ page }) => {
   await page.goto('/');
 
   const holdDuration = await page.evaluate(async () => {
@@ -314,11 +314,11 @@ test('intro holds on the resolved Artur identity before revealing the portfolio'
     });
   });
 
-  expect(holdDuration).toBeGreaterThanOrEqual(1200);
-  expect(holdDuration).toBeLessThan(1500);
+  expect(holdDuration).toBeGreaterThanOrEqual(60);
+  expect(holdDuration).toBeLessThan(300);
 });
 
-test('intro decrypts the Artur identity at a slower readable pace', async ({ page }) => {
+test('intro decrypts the Artur identity quickly while keeping it readable', async ({ page }) => {
   await page.goto('/');
 
   const decryptDuration = await page.evaluate(async () => {
@@ -350,8 +350,8 @@ test('intro decrypts the Artur identity at a slower readable pace', async ({ pag
     });
   });
 
-  expect(decryptDuration).toBeGreaterThanOrEqual(2200);
-  expect(decryptDuration).toBeLessThan(4200);
+  expect(decryptDuration).toBeGreaterThanOrEqual(600);
+  expect(decryptDuration).toBeLessThan(1200);
 });
 
 test('intro keeps cipher letters scrambling at the same fast cadence while decrypting', async ({ page }) => {

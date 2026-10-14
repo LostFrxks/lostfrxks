@@ -1,3 +1,6 @@
+import { createIntroController } from './intro.mjs';
+import { createFrameClock } from './animation-clock.mjs';
+
 (function () {
   const canvas = document.getElementById('matrix-canvas');
   const context = canvas.getContext('2d');
@@ -30,24 +33,18 @@
   const matrixRespawnGapMax = 18;
   const matrixEasterEggWords = ['lostfrxks', 'G5_IS_THE_BEST', 'MISS_U'];
   const matrixEasterEggEvery = 17;
-  const introNameAlphabet = '01{}[]<>/\\$#@ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const introNameScrambleInterval = 70;
-  const introNameDecryptInterval = 220;
-  const introNameDecryptScrambleInterval = introNameScrambleInterval;
   const revealTargets = [];
   const cardTiltResetTimers = new WeakMap();
   let columns = [];
-  let animationId = 0;
+  let animationId = null;
   let matrixAnimationStarted = false;
-  let introNameTimer = 0;
-  let introDecryptTimer = 0;
-  let introNameLockedIndex = 0;
-  let introDismissed = false;
+  let introController;
+  const rainClock = createFrameClock({ intervalMs: 1000 / 30 });
+  let rainTime = 0;
   let revealStarted = false;
   let revealObserver = null;
   let revealScrollHandler = null;
   let revealScrollTicking = false;
-  let matrixFrame = 0;
   let matrixRainGeneration = 0;
   let whoamiStarted = false;
 
@@ -117,13 +114,14 @@
       word,
       trailLength,
       refreshOffset: Math.floor(Math.random() * matrixGlyphRefreshFrames),
+      refreshCycle: -1,
       glyphs: createRainGlyphs(trailLength, word, glyphs),
     };
   }
 
   function resizeCanvas() {
     matrixRainGeneration += 1;
-    const ratio = window.devicePixelRatio || 1;
+    const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
     canvas.width = Math.floor(window.innerWidth * ratio);
     canvas.height = Math.floor(window.innerHeight * ratio);
     canvas.style.width = `${window.innerWidth}px`;
@@ -157,10 +155,11 @@
     });
     canvas.dataset.trailLengths = columns.slice(0, 18).map((column) => column.trailLength).join(',');
     window.__matrixDebug = { columns, matrixRainGeneration };
-    drawMatrixFrame(true);
+    drawMatrixFrame(true, 0);
   }
 
-  function drawMatrixFrame(clear) {
+  function drawMatrixFrame(clear, seconds) {
+    rainTime += seconds;
     const frameClearAlpha = Number(canvas.dataset.frameClearAlpha || matrixFrameClearAlpha);
     if (clear || frameClearAlpha >= 1) {
       context.fillStyle = '#020403';
@@ -177,13 +176,14 @@
     const alphabet = canvas.dataset.rainAlphabet || glyphs;
     context.font = `${fontSize}px JetBrains Mono, Consolas, monospace`;
     context.textBaseline = 'top';
-    matrixFrame += 1;
 
     for (let index = 0; index < columns.length; index += 1) {
       const column = columns[index];
       const x = index * columnWidth;
       const y = column.y;
 
+      const refreshCycle = Math.floor((rainTime * 60 + column.refreshOffset) / refreshFrames);
+      const refreshGlyphs = refreshCycle !== column.refreshCycle;
       for (let segment = column.trailLength; segment >= 0; segment -= 1) {
         const segmentY = y - segment * columnWidth;
         if (segmentY < -columnWidth || segmentY > window.innerHeight + columnWidth) {
@@ -191,8 +191,7 @@
         }
 
         const glyphIndex = column.trailLength - segment;
-        const shouldRefreshGlyph =
-          (matrixFrame + column.refreshOffset + glyphIndex * 17) % refreshFrames === 0;
+        const shouldRefreshGlyph = refreshGlyphs;
         if (!column.glyphs[glyphIndex] || shouldRefreshGlyph) {
           glyphForColumn(column, glyphIndex, alphabet);
         }
@@ -206,13 +205,14 @@
         context.fillText(glyph, x, segmentY);
       }
 
+      column.refreshCycle = refreshCycle;
       const fullTrailExitY = window.innerHeight + (column.trailLength + 1) * columnWidth;
       if (y > fullTrailExitY) {
         columns[index] = createMatrixColumn(0, true);
         columns[index].word = pickEasterEggWord(index);
         columns[index].glyphs = createRainGlyphs(columns[index].trailLength, columns[index].word, alphabet);
       } else {
-        column.y = y + columnWidth * rainSpeed;
+        column.y = y + columnWidth * rainSpeed * 60 * seconds;
       }
     }
     if (window.__matrixDebug) {
@@ -221,26 +221,37 @@
     }
   }
 
-  function animateMatrix() {
-    drawMatrixFrame(false);
-    animationId = window.requestAnimationFrame(animateMatrix);
+  function scheduleMatrix() {
+    if (matrixAnimationStarted && !reducedMotion && document.visibilityState !== 'hidden' && animationId === null) animationId = window.requestAnimationFrame(animateMatrix);
+  }
+
+  function animateMatrix(timestamp) {
+    animationId = null;
+    if (document.visibilityState === 'hidden') return;
+    const seconds = rainClock.sample(timestamp);
+    if (seconds !== null) drawMatrixFrame(false, seconds);
+    scheduleMatrix();
   }
 
   function startMatrixAnimation() {
-    if (matrixAnimationStarted) {
-      return;
-    }
-
+    if (matrixAnimationStarted) return;
     matrixAnimationStarted = true;
     canvas.dataset.animationState = reducedMotion ? 'reduced-motion-static' : 'running';
-
-    if (reducedMotion) {
-      drawMatrixFrame(true);
-      return;
-    }
-
-    animationId = window.requestAnimationFrame(animateMatrix);
+    if (reducedMotion) drawMatrixFrame(true, 0);
+    else scheduleMatrix();
   }
+
+  document.addEventListener('visibilitychange', () => {
+    rainClock.reset();
+    if (document.visibilityState === 'hidden') {
+      if (animationId !== null) window.cancelAnimationFrame(animationId);
+      animationId = null;
+      canvas.dataset.animationState = 'paused';
+    } else {
+      canvas.dataset.animationState = reducedMotion ? 'reduced-motion-static' : 'running';
+      scheduleMatrix();
+    }
+  });
 
   function setupMatrixReveals() {
     const seen = new Set();
@@ -266,6 +277,7 @@
 
     const delay = reducedMotion ? 0 : Math.min(order * 80, 520);
     element.style.setProperty('--reveal-delay', `${delay}ms`);
+    if (document.body.classList.contains('site-revealing')) element.classList.add('intro-content-reveal');
     element.classList.add('matrix-revealed');
     window.setTimeout(() => settleMatrixReveal(element), reducedMotion ? 0 : delay + 900);
   }
@@ -499,109 +511,17 @@
     queueRevealVisibleSections();
   }
 
-  function randomIntroChar() {
-    return introNameAlphabet[Math.floor(Math.random() * introNameAlphabet.length)];
-  }
-
-  function softDecryptChar(index, frame) {
-    return introNameAlphabet[(index * 7 + frame) % introNameAlphabet.length];
-  }
-
-  function scrambleIntroName(lockedCount, mode = 'idle', frame = 0) {
-    const finalText = introName.getAttribute('data-final-text') || 'Artur Usenov';
-    return finalText
-      .split('')
-      .map((char, index) => {
-        if (char === ' ') {
-          return ' ';
-        }
-        return index < lockedCount
-          ? char
-          : mode === 'decrypting'
-            ? softDecryptChar(index, frame)
-            : randomIntroChar();
-      })
-      .join('');
-  }
-
-  function startIntro() {
-    if (!introScreen) {
-      return;
-    }
-
-    introNameLockedIndex = 0;
-    introName.textContent = scrambleIntroName(introNameLockedIndex);
-    introNameTimer = window.setInterval(() => {
-      introName.textContent = scrambleIntroName(introNameLockedIndex);
-    }, reducedMotion ? 500 : introNameScrambleInterval);
-  }
-
   function finishIntro() {
-    introScreen.classList.add('intro-hidden');
-    window.clearInterval(introNameTimer);
-    window.clearInterval(introDecryptTimer);
     introScreen.remove();
-    window.setTimeout(() => {
-      document.body.classList.remove('site-revealing');
-    }, 1200);
+    window.setTimeout(() => document.body.classList.remove('site-revealing'), reducedMotion ? 0 : 700);
     bootTerminal();
   }
 
   function startSiteReveal() {
-    introScreen.classList.add('intro-exiting');
+    forceTopScroll();
     document.body.classList.remove('intro-active');
     document.body.classList.add('site-revealing');
-    startMatrixAnimation();
-    window.setTimeout(startMatrixReveals, reducedMotion ? 0 : 260);
-    window.setTimeout(finishIntro, reducedMotion ? 240 : 1350);
-  }
-
-  function decryptIntroName() {
-    const finalText = introName.getAttribute('data-final-text') || 'Artur Usenov';
-    const revealableCount = finalText.replaceAll(' ', '').length;
-    const startedAt = performance.now();
-    let decryptFrame = 0;
-
-    window.clearInterval(introNameTimer);
-    introNameLockedIndex = 0;
-    introName.textContent = scrambleIntroName(introNameLockedIndex, 'decrypting', decryptFrame);
-    introDecryptTimer = window.setInterval(() => {
-      decryptFrame += 1;
-      const elapsed = performance.now() - startedAt;
-      const lockedCount = Math.min(
-        revealableCount,
-        Math.floor(elapsed / introNameDecryptInterval)
-      );
-
-      let targetIndex = 0;
-      let nonSpaceSeen = 0;
-      while (targetIndex < finalText.length && nonSpaceSeen < lockedCount) {
-        if (finalText[targetIndex] !== ' ') {
-          nonSpaceSeen += 1;
-        }
-        targetIndex += 1;
-      }
-
-      introNameLockedIndex = targetIndex;
-      introName.textContent = scrambleIntroName(introNameLockedIndex, 'decrypting', decryptFrame);
-
-      if (lockedCount >= revealableCount) {
-        window.clearInterval(introDecryptTimer);
-        introName.textContent = finalText;
-        window.setTimeout(startSiteReveal, reducedMotion ? 180 : 1300);
-      }
-    }, reducedMotion ? 60 : introNameDecryptScrambleInterval);
-  }
-
-  function dismissIntro() {
-    if (!introScreen || introDismissed) {
-      return;
-    }
-
-    introDismissed = true;
-    forceTopScroll();
-    introScreen.classList.add('intro-revealing');
-    decryptIntroName();
+    startMatrixReveals();
   }
 
   function bootTerminal() {
@@ -725,8 +645,7 @@
   setupProjectCardTilt();
 
   if (introScreen) {
-    introScreen.addEventListener('click', dismissIntro);
-    startIntro();
+    introController = createIntroController({ screen: introScreen, name: introName, onReveal: startSiteReveal, onComplete: finishIntro });
   } else {
     forceTopScroll();
     document.body.classList.remove('intro-active');
@@ -744,11 +663,10 @@
   startMatrixAnimation();
 
   window.addEventListener('beforeunload', () => {
-    if (animationId) {
+    if (animationId !== null) {
       window.cancelAnimationFrame(animationId);
     }
-    window.clearInterval(introNameTimer);
-    window.clearInterval(introDecryptTimer);
+    introController?.destroy();
     if (revealObserver) {
       revealObserver.disconnect();
     }

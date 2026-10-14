@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 
 const source = readFileSync(new URL('../ascii-torus.js', import.meta.url), 'utf8');
-function createRenderer({ reducedMotion = false } = {}) {
+function createRenderer({ reducedMotion = false, inViewport = true, introVisible = false } = {}) {
+  let viewportCallback;
   let now = 0;
   let frameSequence = 0;
   const frames = new Map();
@@ -21,8 +22,10 @@ function createRenderer({ reducedMotion = false } = {}) {
     releasePointerCapture: id => captures.delete(id),
   };
   const root = { hidden: false, dataset: {}, classList: { contains: () => true }, querySelector: selector => selector.includes('output') ? output : selector.includes('shell') ? shell : { textContent: '' } };
-  const document = { visibilityState: 'visible', getElementById: () => root, addEventListener: (name, handler) => documentListeners.set(name, handler) };
+  const document = { visibilityState: 'visible', getElementById: id => id === 'ascii-torus' ? root : introVisible ? {} : null, addEventListener: (name, handler) => documentListeners.set(name, handler) };
   const window = {
+    innerWidth: 1440,
+    IntersectionObserver: class { constructor(callback) { viewportCallback = callback; } observe() { viewportCallback([{ isIntersecting: inViewport }]); } disconnect() {} },
     matchMedia: query => ({ matches: reducedMotion && query.includes('prefers-reduced-motion') }),
     addEventListener() {},
     requestAnimationFrame: callback => { const id = ++frameSequence; frames.set(id, callback); return id; },
@@ -31,6 +34,7 @@ function createRenderer({ reducedMotion = false } = {}) {
   runInNewContext(source, { window, document, performance: { now: () => now }, MutationObserver: class { observe() {} disconnect() {} } });
   return {
     output, root, window,
+    intersect(visible) { viewportCallback?.([{ isIntersecting: visible }]); },
     step(timestamp) { now = timestamp; const pending = [...frames.values()]; frames.clear(); for (const callback of pending) callback(timestamp); },
     pointer(type, overrides = {}) { shellListeners.get(type)?.({ pointerId: 1, isPrimary: true, button: 0, clientX: 100, clientY: 100, timeStamp: now, ...overrides }); },
     visibility(value) { document.visibilityState = value; documentListeners.get('visibilitychange')?.(); },
@@ -107,4 +111,21 @@ test('hidden tabs pause rendering and return without a catch-up jump', () => {
   assert.equal(renderer.root.dataset.torusRotation, before);
   renderer.step(60_020);
   assert.notEqual(renderer.root.dataset.torusRotation, before);
+});
+
+
+test('torus performs no rendering behind intro or outside the viewport', () => {
+  const intro = createRenderer({ introVisible: true });
+  assert.equal(intro.pendingFrames, 0);
+  assert.equal(intro.output.textContent, '');
+  const renderer = createRenderer({ inViewport: false });
+  assert.equal(renderer.pendingFrames, 0);
+  assert.equal(renderer.output.textContent, '');
+  renderer.intersect(true);
+  assert.equal(renderer.pendingFrames, 1);
+  renderer.step(0);renderer.step(20);renderer.step(400);
+  assert.ok(renderer.output.textContent.trim().length > 100);
+  renderer.intersect(false);assert.equal(renderer.pendingFrames, 0);
+  const before = renderer.root.dataset.torusRotation;renderer.step(10_000);
+  assert.equal(renderer.root.dataset.torusRotation, before);
 });

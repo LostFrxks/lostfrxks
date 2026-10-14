@@ -618,7 +618,7 @@ test('hero presents Artur for backend and AI backend roles', async ({ page }) =>
   );
   await expect(page.locator('.identity-panel .avatar')).toHaveAttribute(
     'alt',
-    'Portrait of Artur Usenov in graduation attire'
+    'Artur Usenov overlooking a mountain forest'
   );
   await expect(page.locator('.signal-list').getByText('Current', { exact: true })).toBeVisible();
   await expect(page.locator('.signal-list').getByText(/Backend Developer @ MDigital/i)).toBeVisible();

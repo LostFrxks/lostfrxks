@@ -1,0 +1,13 @@
+# Private visit analytics
+
+Approved in chat on 2026-10-14. Identify Artur by a random persistent browser ID registered only after successful password authentication, never by IP. Retain self visits with a visible «Ты» badge and amber styling, exclude them from visit counts and average duration, including this browser's visits collected before its first login under the new implementation. Old anonymous history cannot be attributed retrospectively.
+
+Collect a fresh visit ID for every document navigation, a stable browser ID, cumulative visible duration, device/OS/browser, optional model hints, page pathname, referrer origin and campaign tags, server-authoritative IP and Netlify country/region/city, section visibility time, maximum scroll depth and aggregate clicks by destination. Do not collect screen dimensions, form values, keypresses, clipboard or credentials. Collection fails safely under browser restrictions.
+
+Retain detailed visit records indefinitely as independent conditional-write blobs in the existing private Netlify store. Keep the existing legacy state and compactor unchanged. Merge legacy aggregates with detailed records for stats; owner membership is resolved on the server. The legacy state is never migrated destructively. Out-of-order cumulative updates cannot decrease duration, scroll, section times or click counts. A visit cannot switch browser IDs.
+
+Only authenticated requests can mark a browser or read history. Use the existing password environment variable and Bearer authentication, same-origin checks for mutations, bounded validated bodies and no-store responses. Unauthorized reads and markings must perform no storage operations. Never accept a client-provided owner flag or geographic/IP fields. No visitor/browser IDs are exposed by the public collection endpoint.
+
+The password-only gate and terminal visual style remain. Show newest-first expandable visit cards, all agreed fields and friendly unavailable/legacy labels. Render untrusted strings with textContent. Fetch history in pages of 50; clear private data from the DOM when locked. Detailed blobs are not deleted by compaction. Database storage is indefinite; Netlify hosting quotas remain unchanged.
+
+Verification: legacy regression tests; real repositories over a conditional in-memory blob transport; concurrency, malformed data and unauthorized access tests; desktop/mobile browser tracking and card interaction; local Netlify Functions/Blobs integration with a development password; publish via main and verify actual public assets and protected API behavior without marking the automation browser as Artur or fabricating visits.

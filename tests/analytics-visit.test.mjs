@@ -3,10 +3,10 @@ import test from 'node:test';
 
 const IDS = ['2fa03426-bb1f-4b9c-a7ce-0e760552ad57', '73d9e264-7ca6-4714-9868-1f4029b8214f', 'fd570f92-da7a-4c91-a725-927aac196729'];
 function storage() { const items = new Map(); return { getItem: key => items.get(key) ?? null, setItem: (key, value) => items.set(key, value) }; }
-function harness() {
+function harness(sectionId = 'projects') {
   let time = 0, sequence = 0, observer;
   const listeners = new Map();
-  const section = { id: 'projects' };
+  const section = { id: sectionId };
   const doc = { visibilityState: 'visible', referrer: 'https://google.com/search?private=secret', documentElement: { scrollHeight: 2000 }, querySelectorAll: () => [section], getElementById: () => null,
     addEventListener: (name, callback) => listeners.set(name, callback), removeEventListener: name => listeners.delete(name) };
   const win = { localStorage: storage(), sessionStorage: storage(), crypto: { randomUUID: () => IDS[sequence++] }, performance: { now: () => time }, location: { href: 'https://portfolio.example/?utm_source=linkedin&private=secret', origin: 'https://portfolio.example', pathname: '/', search: '?utm_source=linkedin&private=secret' }, navigator: { userAgentData: { mobile: true, platform: 'Android' } }, scrollY: 500, innerHeight: 1000,
@@ -75,4 +75,21 @@ test('sections behind the intro overlay do not count as viewed', async () => {
   assert.deepEqual(collector.snapshot(5).sections, []);
   intro = null; collector.snapshot(5); h.advance(2000);
   assert.deepEqual(collector.snapshot(7).sections, [{ id: 'projects', seconds: 2 }]);
+});
+
+
+test('talks section is observed and included in visit activity', async () => {
+  const { createVisitCollector } = await import('../analytics-visit.mjs');
+  const h = harness('talks');
+  const watched = [];
+  h.win.IntersectionObserver = class {
+    constructor(callback) { this.callback = callback; }
+    observe(section) { watched.push(section); this.callback([{ target: section, isIntersecting: true }]); }
+    disconnect() {}
+  };
+  const collector = createVisitCollector({ browserWindow: h.win, browserDocument: h.doc });
+  assert.deepEqual(watched.map(section => section.id), ['talks']);
+  h.advance(3000);
+  assert.deepEqual(collector.snapshot(3).sections, [{ id: 'talks', seconds: 3 }]);
+  collector.stop();
 });

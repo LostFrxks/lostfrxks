@@ -122,3 +122,14 @@ test('invalid IDs, activity and geographic strings do not compromise stored reco
   assert.equal(visit.ip, null);
   assert.equal(visit.location.city, null);
 });
+
+
+test('talks activity survives validation, storage and admin stats', async () => {
+  const { VisitRepository } = await import('../netlify/lib/analytics-visits.mjs');
+  const repository = new VisitRepository(new MemoryBlobs());
+  await repository.upsertVisit(visitPayload({ sections: [{ id: 'talks', seconds: 10 }] }), context, NOW);
+  const visits = await repository.readVisits();
+  assert.deepEqual(visits[0].sections, [{ id: 'talks', seconds: 10 }]);
+  const stats = buildStats({ daily: [], sessions: [], visitTimes: [], visits, now: NOW });
+  assert.deepEqual(stats.visits[0].sections, [{ id: 'talks', seconds: 10 }]);
+});

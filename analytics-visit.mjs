@@ -1,6 +1,6 @@
 export const BROWSER_KEY = 'lostfrxks.analytics.browser';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const SECTIONS = new Set(['hero', 'whoami', 'experience', 'projects', 'stack', 'achievements', 'timeline', 'contact']);
+const SECTIONS = new Set(['hero', 'whoami', 'experience', 'projects', 'talks', 'stack', 'achievements', 'timeline', 'contact']);
 const memoryIds = new WeakMap();
 function clean(value, max = 120) { return typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max) : ''; }
 

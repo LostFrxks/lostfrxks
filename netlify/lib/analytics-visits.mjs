@@ -7,7 +7,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
 const VISIT_PREFIX = 'analytics/visits/';
 const OWNER_PREFIX = 'analytics/owners/';
 const STRONG_JSON = { consistency: 'strong', type: 'json' };
-const SECTION_IDS = new Set(['hero', 'whoami', 'experience', 'projects', 'stack', 'achievements', 'timeline', 'contact']);
+const SECTION_IDS = new Set(['hero', 'whoami', 'experience', 'projects', 'talks', 'stack', 'achievements', 'timeline', 'contact']);
 const FIELDS = ['sessionId', 'browserId', 'activeSeconds', 'pagePath', 'referrer', 'utm', 'deviceHints', 'scrollPercent', 'sections', 'clicks'];
 
 function object(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }

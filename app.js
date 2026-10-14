@@ -1,5 +1,6 @@
 import { createIntroController } from './intro.mjs';
 import { createFrameClock } from './animation-clock.mjs';
+import { setupSpeaking } from './speaking.mjs';
 
 (function () {
   const canvas = document.getElementById('matrix-canvas');
@@ -639,6 +640,7 @@ import { createFrameClock } from './animation-clock.mjs';
     });
   });
 
+  setupSpeaking();
   setupWhoamiReservedLines();
   setupBootReservedLines();
   setupMatrixReveals();

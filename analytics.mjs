@@ -1,3 +1,5 @@
+import { createVisitCollector } from './analytics-visit.mjs';
+
 export const ANALYTICS_SESSION_KEY = 'lostfrxks.analytics.session';
 export const HEARTBEAT_INTERVAL_MS = 20_000;
 export const MAX_ACTIVE_SECONDS = 43_200;
@@ -103,7 +105,8 @@ export function startAnalytics({
       cryptoImpl = undefined;
     }
 
-    const sessionId = getOrCreateSessionId(storage, cryptoImpl);
+    const collector = createVisitCollector({ browserWindow, browserDocument });
+    const sessionId = collector?.sessionId ?? getOrCreateSessionId(storage, cryptoImpl);
     if (!sessionId) {
       return noOp;
     }
@@ -129,8 +132,8 @@ export function startAnalytics({
       try {
         const request = browserWindow.fetch(endpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, activeSeconds }),
+          headers: { 'Content-Type': 'application/json', ...(collector ? { 'X-Analytics-Version': '2' } : {}) },
+          body: JSON.stringify({ sessionId, activeSeconds, ...collector?.snapshot(activeSeconds) }),
           cache: 'no-store',
           credentials: 'omit',
           keepalive: true,
@@ -147,6 +150,7 @@ export function startAnalytics({
         return;
       }
       stopped = true;
+      try { collector?.stop(); } catch {}
 
       if (intervalRegistered) {
         try {
@@ -162,6 +166,7 @@ export function startAnalytics({
           // Cleanup remains best-effort in restricted browser environments.
         }
       }
+      if (collector) { try { browserDocument.removeEventListener('click', handleAnalyticsClick); } catch {} }
       if (pagehideRegistered) {
         try {
           browserWindow.removeEventListener('pagehide', handlePagehide);
@@ -221,7 +226,12 @@ export function startAnalytics({
       sampleAndSend();
     }
 
+    function handleAnalyticsClick(event) {
+      if (event.target?.closest?.('a[href]')) sampleAndSend();
+    }
+
     send(0);
+    if (collector) { try { browserDocument.addEventListener('click', handleAnalyticsClick); } catch {} }
 
     try {
       browserDocument.addEventListener('visibilitychange', handleVisibilityChange);

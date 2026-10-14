@@ -4,6 +4,7 @@ import {
   parseSessionPayload,
 } from '../lib/analytics-core.mjs';
 import { createAnalyticsRepository } from '../lib/analytics-repository.mjs';
+import { createVisitRepository, parseVisitPayload } from '../lib/analytics-visits.mjs';
 
 const MAX_BODY_BYTES = 512;
 const NO_STORE_HEADERS = { 'cache-control': 'no-store' };
@@ -24,10 +25,10 @@ function hasJsonMediaType(value) {
     === 'application/json';
 }
 
-function declaredBodyIsOversized(value) {
+function declaredBodyIsOversized(value, maximum) {
   return typeof value === 'string'
     && /^\d+$/.test(value)
-    && BigInt(value) > BigInt(MAX_BODY_BYTES);
+    && BigInt(value) > BigInt(maximum);
 }
 
 export function createSessionHandler(dependencies = {}) {
@@ -36,6 +37,7 @@ export function createSessionHandler(dependencies = {}) {
   const clock = dependencies.now ?? (() => new Date());
   const logger = dependencies.logger ?? console;
   let repository = dependencies.repository;
+  let visitRepository = dependencies.visitRepository;
 
   const resolveRepository = () => {
     if (repository === undefined) {
@@ -44,7 +46,9 @@ export function createSessionHandler(dependencies = {}) {
     return repository;
   };
 
-  return async function analyticsSession(request) {
+  return async function analyticsSession(request, context = {}) {
+    const rich = request.headers.get('x-analytics-version') === '2';
+    const maximum = rich ? 32_768 : MAX_BODY_BYTES;
     if (request.method !== 'POST') {
       return emptyResponse(405, { allow: 'POST' });
     }
@@ -61,19 +65,19 @@ export function createSessionHandler(dependencies = {}) {
       return emptyResponse(204);
     }
 
-    if (declaredBodyIsOversized(request.headers.get('content-length'))) {
+    if (declaredBodyIsOversized(request.headers.get('content-length'), maximum)) {
       return emptyResponse(413);
     }
 
     try {
       const body = await request.arrayBuffer();
-      if (body.byteLength > MAX_BODY_BYTES) {
+      if (body.byteLength > maximum) {
         return emptyResponse(413);
       }
 
       let session;
       try {
-        session = parseSessionPayload(
+        session = (rich ? parseVisitPayload : parseSessionPayload)(
           JSON.parse(new TextDecoder().decode(body)),
         );
       } catch (error) {
@@ -83,11 +87,12 @@ export function createSessionHandler(dependencies = {}) {
         throw error;
       }
 
-      await resolveRepository().upsertSession(
-        session.sessionId,
-        session.activeSeconds,
-        clock(),
-      );
+      if (rich) {
+        visitRepository ??= (dependencies.visitRepositoryFactory ?? createVisitRepository)();
+        await visitRepository.upsertVisit(session, { ip: context.ip, geo: context.geo, userAgent: request.headers.get('user-agent') ?? '' }, clock());
+      } else {
+        await resolveRepository().upsertSession(session.sessionId, session.activeSeconds, clock());
+      }
       return emptyResponse(204);
     } catch {
       logger.error('analytics session unavailable');

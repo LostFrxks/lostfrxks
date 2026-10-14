@@ -22,32 +22,34 @@
 
 Files: create netlify/lib/analytics-visits.mjs and tests/analytics-visits.test.mjs; extend analytics-core.mjs only for optional detailed records.
 
-- [ ] Write failing tests over a conditional blob fake: concurrent visitors survive, reordered heartbeats do not reduce activity, browser identity cannot change, marking one browser excludes only that browser even on a shared IP, old state remains untouched, future compaction retains detailed blobs.
-- [ ] Run `node --test tests/analytics-visits.test.mjs` and confirm missing-feature failures.
-- [ ] Implement `VisitRepository.upsertVisit(payload, context, now)`, `markOwner(browserId, now)`, `readVisits()` and the combined legacy/detailed factory. Validate UUIDs, dates, bounded strings/maps and trusted server metadata. Extend `buildStats` to filter owner records and merge optional detailed statistics without changing its legacy interface.
-- [ ] Run the new and existing unit suites. Verify counts against literal fixtures with one old visit, one real visitor and one owner.
+- [x] Write failing tests over a conditional blob fake: concurrent visitors survive, reordered heartbeats do not reduce activity, browser identity cannot change, marking one browser excludes only that browser even on a shared IP, old state remains untouched, future compaction retains detailed blobs.
+- [x] Run `node --test tests/analytics-visits.test.mjs` and confirm missing-feature failures.
+- [x] Implement `VisitRepository.upsertVisit(payload, context, now)`, `markOwner(browserId, now)`, `readVisits()` and the combined legacy/detailed factory. Validate UUIDs, dates, bounded strings/maps and trusted server metadata. Extend `buildStats` to filter owner records and merge optional detailed statistics without changing its legacy interface.
+- [x] Run the new and existing unit suites. Verify counts against literal fixtures with one old visit, one real visitor and one owner.
 
 ### Task 2: Private endpoints
 
 Files: modify analytics-session.mjs and analytics-stats.mjs; create analytics-owner.mjs and tests/analytics-extended-functions.test.mjs.
 
-- [ ] Write failing tests proving wrong/missing passwords cannot read or register, forged owner/IP fields are rejected, same-origin rich collection persists trusted IP/geo, and paginated authorized history is ordered without exposed browser IDs.
-- [ ] Implement strict rich collection with lean payload backwards compatibility, authenticated POST /api/analytics/owner and GET stats history pagination (50 records, validated offset).
-- [ ] Run `node --test tests/analytics*functions.test.mjs` and all unit tests.
+- [x] Write failing tests proving wrong/missing passwords cannot read or register, forged owner/IP fields are rejected, same-origin rich collection persists trusted IP/geo, and paginated authorized history is ordered without exposed browser IDs.
+- [x] Implement strict rich collection with lean payload backwards compatibility, authenticated POST /api/analytics/owner and GET stats history pagination (50 records, validated offset).
+- [x] Run `node --test tests/analytics*functions.test.mjs` and all unit tests.
 
 ### Task 3: Browser collection
 
 Files: create analytics-visit.mjs and tests/analytics-visit.test.mjs; integrate into analytics.mjs and update existing browser payload tests.
 
-- [ ] Write failing behavioral tests for persistent browser/fresh visit IDs, referrer and campaign sanitation, section visibility without hidden time, scroll and click aggregation, storage failures and cleanup.
-- [ ] Implement `getBrowserId`, `createVisitCollector` and integrate collector snapshots into existing heartbeat delivery. Keep passwords and browser ownership out of collection payloads.
-- [ ] Run tracker unit tests and Playwright collection tests on the isolated server.
+- [x] Write failing behavioral tests for persistent browser/fresh visit IDs, referrer and campaign sanitation, section visibility without hidden time, scroll and click aggregation, storage failures and cleanup.
+- [x] Implement `getBrowserId`, `createVisitCollector` and integrate collector snapshots into existing heartbeat delivery. Keep passwords and browser ownership out of collection payloads.
+- [x] Run tracker unit tests and Playwright collection tests on the isolated server.
 
 ### Task 4: Cards, integration and release
 
 Files: analytics-dashboard.mjs, analytics.css, secret.html, tests/analytics.spec.js and README.md.
 
-- [ ] Write failing browser tests for owner registration after correct password only, expandable cards and amber/text labels, safe rendering of hostile strings, pagination, desktop/mobile layout and clearing private DOM on lock.
-- [ ] Implement owner registration before stats loading, stable browser identity shared with the collector, paginated accessible details cards and metadata labels. Update asset version URLs and the documented data contract.
-- [ ] Run all unit and browser tests; inspect desktop/mobile screenshots; exercise real local Netlify endpoints and Blobs with a development password, including shared-IP owner exclusion and restart persistence.
+- [x] Write failing browser tests for owner registration after correct password only, expandable cards and amber/text labels, safe rendering of hostile strings, pagination, desktop/mobile layout and clearing private DOM on lock.
+- [x] Implement owner registration before stats loading, stable browser identity shared with the collector, paginated accessible details cards and metadata labels. Update asset version URLs and the documented data contract.
+- [x] Run all unit and browser tests; inspect desktop/mobile screenshots; exercise real local Netlify endpoints and Blobs with a development password, including shared-IP owner exclusion and restart persistence.
 - [ ] Review the final diff and checks, merge the feature branch into main, push, and verify public asset hashes and unauthorized APIs. Do not claim a real-user owner login was tested in production.
+
+Local verification: 101 unit checks and 57 full browser checks passed. Final analytics browser rerun: 10 passed. Real Netlify Functions/Blobs sandbox verified trusted metadata, owner exclusion on a shared IP, browser collection, desktop/mobile cards, clearing data on lock and restart persistence. Installed @netlify/blobs 10.7.9 local emulator omits GET ETags; a temporary untracked dependency-only repair enabled local CAS checks. Application ETag integrity checks remain enforced. Independent read-only code review found no material issues. History paging bounds returned data; aggregate calculation currently scans retained visit records.

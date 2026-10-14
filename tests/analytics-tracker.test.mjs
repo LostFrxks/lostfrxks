@@ -525,13 +525,13 @@ test('analytics module imports safely without browser globals and auto-starts wi
 
 test('index loads analytics as the final module script without changing classic scripts', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
-  const analyticsScript = '<script type="module" src="analytics.mjs?v=anonymous-analytics-20260717"></script>';
+  const analyticsScript = '<script type="module" src="analytics.mjs?v=visit-cards-20261014"></script>';
 
   assert.equal(html.split(analyticsScript).length - 1, 1);
   assert.match(html, new RegExp([
     '<script src="ascii-torus\\.js\\?v=ascii-torus-20260428"></script>',
     '<script src="app\\.js\\?v=ascii-torus-20260428"></script>',
-    '<script type="module" src="analytics\\.mjs\\?v=anonymous-analytics-20260717"></script>',
+    '<script type="module" src="analytics\\.mjs\\?v=visit-cards-20261014"></script>',
     '</body>',
   ].join('\\s+')));
 });

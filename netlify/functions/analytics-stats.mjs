@@ -2,7 +2,7 @@ import {
   buildStats,
   tokensEqual,
 } from '../lib/analytics-core.mjs';
-import { createAnalyticsRepository } from '../lib/analytics-repository.mjs';
+import { createCombinedAnalyticsRepository } from '../lib/analytics-visits.mjs';
 
 const NO_STORE_HEADERS = { 'cache-control': 'no-store' };
 const JSON_HEADERS = {
@@ -33,7 +33,7 @@ function bearerToken(value) {
 
 export function createStatsHandler(dependencies = {}) {
   const repositoryFactory = dependencies.repositoryFactory
-    ?? createAnalyticsRepository;
+    ?? createCombinedAnalyticsRepository;
   const clock = dependencies.now ?? (() => new Date());
   const logger = dependencies.logger ?? console;
   const statsBuilder = dependencies.buildStats ?? buildStats;
@@ -73,9 +73,19 @@ export function createStatsHandler(dependencies = {}) {
       return jsonResponse(401, { error: 'Unauthorized' });
     }
 
+    const offsetValue = new URL(request.url).searchParams.get('offset') ?? '0';
+    if (!/^\d{1,9}$/.test(offsetValue)) return jsonResponse(400, { error: 'Invalid history offset' });
+    const offset = Number(offsetValue);
+
     try {
       const dataset = await resolveRepository().readDataset();
       const stats = statsBuilder({ ...dataset, now: clock() });
+      if (Array.isArray(stats.visits)) {
+        const total = stats.visits.length;
+        stats.visits = stats.visits.slice(offset, offset + 50);
+        stats.visitTimes = stats.visits.map(visit => visit.startedAt);
+        stats.history = { offset, nextOffset: offset + 50 < total ? offset + 50 : null, total };
+      }
       return jsonResponse(200, stats);
     } catch {
       logger.error('analytics stats unavailable');

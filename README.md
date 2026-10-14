@@ -108,16 +108,30 @@ The site can be served from any static host. If GitHub Pages is used, the custom
 
 ## private analytics
 
-The portfolio includes free, first-party anonymous analytics backed by Netlify Functions and Netlify Blobs. The browser sends only a random tab-scoped UUID and cumulative visible seconds:
+The portfolio includes private, first-party visit analytics backed by Netlify Functions and Netlify Blobs. Every page load gets a random visit ID; a separate random browser ID persists in local storage. The public page sends cumulative visible seconds, maximum scroll depth, section visibility time and click counts, alongside its entry pathname, referrer origin, campaign tags and optional device hints:
 
 ```json
 {
-  "sessionId": "random tab-scoped UUID",
-  "activeSeconds": 42
+  "sessionId": "random visit UUID",
+  "browserId": "random persistent browser UUID",
+  "activeSeconds": 42,
+  "pagePath": "/",
+  "referrer": "https://google.com",
+  "utm": {},
+  "deviceHints": {},
+  "scrollPercent": 75,
+  "sections": [{"id": "projects", "seconds": 15}],
+  "clicks": [{"target": "/assets/artur-usenov-resume.pdf", "label": "Resume", "count": 1}]
 }
 ```
 
-The server stores those anonymous live sessions, daily totals, and the exact server time of each new visit in one ETag-protected state document. Visit times are retained from the deployment that introduced history and are shown newest-first in Bishkek time. Application code does not store IP addresses, user agents, referrers, URLs, query parameters, location, language, or device data. Netlify may retain ordinary infrastructure logs independently of this dataset.
+The server derives device, OS and browser from the HTTP user agent and stores trusted Netlify IP and approximate country/region/city. Screen dimensions, form values, keypresses, credentials and arbitrary URL query parameters are not collected. Clicks identify navigation intent; they do not prove a completed download or message. Device/model and location availability varies by browser and network.
+
+Detailed visits are retained indefinitely as independent ETag-protected blobs. Heartbeat retries merge cumulative maxima rather than duplicating visits or reducing activity. Payloads are bounded to eight named sections, 64 distinct click destinations and 32 KiB. The legacy statistics and date-only visit history remain intact, and the existing daily compactor never deletes detailed visits.
+
+After successful password authentication, the dashboard registers that browser as the owner. All its detailed visits, including those collected before login, remain in history with an amber **Ты** badge but are excluded from counts and average duration. Other browsers sharing its IP are unaffected. Clearing browser storage or using another browser requires a new admin login. Historic anonymous visits cannot be identified retrospectively.
+
+The history is newest-first in Bishkek time with expandable cards and 50 visits per page. Every history read, pagination request and owner registration verifies the password on the server. Locking clears rendered private data. Netlify may retain ordinary infrastructure logs independently of this dataset.
 
 `/secret.html` is intentionally unlinked. Its data API requires the `ANALYTICS_ADMIN_PASSWORD` Netlify environment variable. Use a strong password and keep it outside the repository.
 

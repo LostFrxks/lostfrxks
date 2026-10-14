@@ -2,6 +2,10 @@ const { test, expect } = require('@playwright/test');
 
 const SESSION_ENDPOINT = '**/api/analytics/session';
 const STATS_ENDPOINT = '**/api/analytics/stats';
+const OWNER_ENDPOINT = '**/api/analytics/owner';
+test.beforeEach(async ({ page }) => {
+  await page.route(OWNER_ENDPOINT, route => route.fulfill({ status: route.request().headers().authorization === 'Bearer correct-secret' ? 204 : 401, body: '' }));
+});
 const dashboardResponse = {
   generatedAt: '2026-07-17T10:05:00.000Z',
   timezone: 'Asia/Bishkek',
@@ -17,7 +21,7 @@ const dashboardResponse = {
   },
 };
 
-test('tracker sends only an anonymous tab session and active seconds', async ({ page }) => {
+test('tracker sends approved visit details with a stable browser and fresh visits on reload', async ({ page }) => {
   const requests = [];
   await page.route(SESSION_ENDPOINT, async (route) => {
     requests.push({
@@ -33,15 +37,18 @@ test('tracker sends only an anonymous tab session and active seconds', async ({ 
   await expect.poll(() => requests.length).toBeGreaterThanOrEqual(2);
 
   for (const request of requests) {
-    expect(Object.keys(request.body).sort()).toEqual(['activeSeconds', 'sessionId']);
+    expect(Object.keys(request.body).sort()).toEqual(['activeSeconds', 'browserId', 'clicks', 'deviceHints', 'pagePath', 'referrer', 'scrollPercent', 'sections', 'sessionId', 'utm']);
     expect(request.body.sessionId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
     expect(request.headers.referer).toBeUndefined();
     expect(request.headers.cookie).toBeUndefined();
+    expect(request.headers['x-analytics-version']).toBe('2');
+    expect(request.body.browserId).toMatch(/^[0-9a-f-]{36}$/);
   }
   expect(requests[0].body.activeSeconds).toBe(0);
-  expect(new Set(requests.map(({ body }) => body.sessionId)).size).toBe(1);
+  expect(requests[0].body.sessionId).not.toBe(requests.at(-1).body.sessionId);
+  expect(new Set(requests.map(({ body }) => body.browserId)).size).toBe(1);
 });
 
 test('tracker excludes hidden time and hidden interval traffic', async ({ page }) => {
@@ -147,4 +154,78 @@ test('secret gate stays anonymous for wrong passwords and retains retry password
   await expect(page.locator('[data-error]')).toHaveText('Temporarily unavailable.');
   await expect(password).toHaveValue('correct-secret');
   await expect(page.locator('[data-dashboard]')).toBeHidden();
+});
+
+const detailedVisit = {
+  id: '2fa03426-bb1f-4b9c-a7ce-0e760552ad57', startedAt: '2026-10-14T14:00:00.000Z', lastSeenAt: '2026-10-14T14:02:00.000Z', activeSeconds: 120,
+  pagePath: '/', ip: '192.0.2.7', location: { country: 'Kyrgyzstan', region: 'Chuy', city: 'Bishkek' },
+  device: { type: 'Phone', os: 'Android', browser: 'Chrome', version: '130.0', model: 'Pixel 8' },
+  referrer: 'https://google.com', utm: { source: 'linkedin' }, scrollPercent: 83,
+  sections: [{ id: 'projects', seconds: 40 }], clicks: [{ target: '/assets/artur-usenov-resume.pdf', label: 'Resume', count: 2 }], isOwner: true, legacy: false,
+};
+const detailedResponse = { ...dashboardResponse, visits: [detailedVisit, { ...detailedVisit, id: 'guest', isOwner: false, activeSeconds: 30 }, { id: 'legacy', startedAt: '2026-07-17T13:42:13.000Z', isOwner: false, legacy: true, activeSeconds: null }], history: { offset: 0, nextOffset: null, total: 3 } };
+
+async function unlock(page) { await page.goto('/secret.html'); await page.getByLabel(/access password/i).fill('correct-secret'); await page.getByLabel(/access password/i).press('Enter'); await expect(page.locator('[data-dashboard]')).toBeVisible(); }
+
+test('correct login registers this browser and cards show owner and visit activity', async ({ page }) => {
+  let marked;
+  await page.route(OWNER_ENDPOINT, route => { marked = route.request().postDataJSON(); return route.fulfill({ status: 204, body: '' }); });
+  await page.route(STATS_ENDPOINT, route => route.fulfill({ json: detailedResponse }));
+  await unlock(page);
+  expect(marked.browserId).toBe(await page.evaluate(() => localStorage.getItem('lostfrxks.analytics.browser')));
+  const cards = page.locator('[data-visit-history] details');
+  await expect(cards).toHaveCount(3);
+  await expect(cards.first().locator('summary')).toContainText('Ты');
+  await expect(cards.nth(1).locator('summary')).not.toContainText('Ты');
+  expect(await cards.first().locator('summary').evaluate(e => getComputedStyle(e).color)).not.toBe(await cards.nth(1).locator('summary').evaluate(e => getComputedStyle(e).color));
+  await cards.first().locator('summary').click();
+  await expect(cards.first()).toContainText('Pixel 8');
+  await expect(cards.first()).toContainText('192.0.2.7');
+  await expect(cards.first()).toContainText('Kyrgyzstan');
+  await expect(cards.first()).toContainText('Chuy');
+  await expect(cards.first()).toContainText('83%');
+  await expect(cards.first()).toContainText('Resume');
+  await expect(cards.first()).toContainText('Selected Work');
+  await cards.nth(2).locator('summary').click();
+  await expect(cards.nth(2)).toContainText('Подробности не собирались');
+});
+
+test('details require successful password and lock removes private DOM', async ({ page }) => {
+  let reads = 0;
+  await page.route(STATS_ENDPOINT, route => { reads++; return route.fulfill({ json: detailedResponse }); });
+  await page.goto('/secret.html');
+  expect(reads).toBe(0);
+  await page.getByLabel(/access password/i).fill('wrong-secret'); await page.getByLabel(/access password/i).press('Enter');
+  await expect(page.locator('[data-error]')).toHaveText('Access denied.');
+  expect(reads).toBe(0);
+  await page.getByLabel(/access password/i).fill('correct-secret'); await page.getByLabel(/access password/i).press('Enter');
+  await expect(page.locator('[data-visit-history] details')).toHaveCount(3);
+  await page.getByRole('button', { name: 'Lock', exact: true }).click();
+  await expect(page.locator('[data-visit-history]')).toBeEmpty();
+  await expect(page.locator('[data-dashboard]')).toBeHidden();
+  expect(await page.evaluate(() => sessionStorage.getItem('lostfrxks.analytics.adminPassword'))).toBeNull();
+});
+
+test('authenticated pagination appends cards and refresh returns to newest visits', async ({ page }) => {
+  const offsets = [];
+  await page.route('**/api/analytics/stats*', route => { const offset = new URL(route.request().url()).searchParams.get('offset') || '0'; offsets.push(offset); return route.fulfill({ json: offset === '0' ? { ...detailedResponse, visits: [detailedVisit], history: { offset: 0, nextOffset: 50, total: 51 } } : { ...detailedResponse, visits: [{ ...detailedVisit, id: 'older', isOwner: false }], history: { offset: 50, nextOffset: null, total: 51 } } }); });
+  await unlock(page);
+  await page.getByRole('button', { name: 'Ещё заходы' }).click();
+  await expect(page.locator('[data-visit-history] details')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Ещё заходы' })).toBeHidden();
+  expect(offsets).toEqual(['0', '50']);
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(page.locator('[data-visit-history] details')).toHaveCount(1);
+});
+
+test('mobile cards safely display hostile metadata without horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const malicious = '<img src=x onerror=window.__injected=true>';
+  await page.route(STATS_ENDPOINT, route => route.fulfill({ json: { ...detailedResponse, visits: [{ ...detailedVisit, device: { ...detailedVisit.device, model: malicious }, ip: '2001:db8:1234:5678:1234:5678:1234:5678' }] } }));
+  await unlock(page);
+  await page.locator('[data-visit-history] summary').click();
+  await expect(page.locator('[data-visit-history]')).toContainText(malicious);
+  await expect(page.locator('[data-visit-history] img')).toHaveCount(0);
+  expect(await page.evaluate(() => window.__injected)).toBeUndefined();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

@@ -118,7 +118,7 @@ function summarize(items) {
   };
 }
 
-export function buildStats({ daily, sessions, visitTimes = [], now }) {
+export function buildStats({ daily, sessions, visitTimes = [], visits, now }) {
   const authoritativeDates = new Set(daily.map((record) => record.date));
   const records = daily.map((record) => ({ ...record }));
 
@@ -133,6 +133,10 @@ export function buildStats({ daily, sessions, visitTimes = [], now }) {
     }
   }
 
+  for (const visit of visits ?? []) {
+    if (!visit.isOwner) records.push({ date: bishkekDateKey(new Date(visit.startedAt)), visits: 1, totalActiveSeconds: visit.activeSeconds });
+  }
+
   const today = bishkekDateKey(now);
   const sevenDaysAgo = shiftDateKey(today, -6);
   const thirtyDaysAgo = shiftDateKey(today, -29);
@@ -140,10 +144,16 @@ export function buildStats({ daily, sessions, visitTimes = [], now }) {
     (record) => record.date >= start && record.date <= today,
   );
 
+  const history = visits === undefined ? undefined : [
+    ...visitTimes.map((startedAt, index) => ({ id: 'legacy-' + index, startedAt, activeSeconds: null, isOwner: false, legacy: true })),
+    ...visits,
+  ].sort((left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt) || left.id.localeCompare(right.id));
+
   return {
     generatedAt: now.toISOString(),
     timezone: ANALYTICS_TIME_ZONE,
     visitTimes: [...visitTimes].sort((left, right) => Date.parse(right) - Date.parse(left)),
+    ...(history === undefined ? {} : { visits: history }),
     periods: {
       today: summarize(recordsWithin(today)),
       sevenDays: summarize(recordsWithin(sevenDaysAgo)),

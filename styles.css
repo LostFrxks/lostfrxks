@@ -1266,9 +1266,9 @@ h3 {
 .talk-topline .section-kicker { margin: 0; }
 .talk-status { display: flex; align-items: center; gap: .65rem; font: .68rem var(--mono); letter-spacing: .12em; color: var(--muted); }
 .talk-status i { width: 6px; height: 6px; background: var(--cyan); box-shadow: 0 0 12px var(--cyan); }
-.talk-stage { position: relative; isolation: isolate; display: grid; grid-template-columns: 1.02fr 1fr; gap: 2.5rem 3rem; padding: clamp(1.4rem, 4vw, 3.4rem); overflow: hidden; border: 1px solid rgba(101,231,255,.35); background: radial-gradient(ellipse at 95% 25%,rgba(22,84,103,.27),transparent 60%),linear-gradient(135deg,rgba(2,10,9,.97),rgba(5,21,26,.96)); box-shadow: 0 28px 100px rgba(0,0,0,.4),inset 0 1px rgba(101,231,255,.16); }
+.talk-stage { position: relative; isolation: isolate; display: grid; grid-template-columns: 1.02fr 1fr; gap: 2.5rem 3rem; padding: clamp(1.4rem, 4vw, 3.4rem); overflow: hidden; border: 1px solid rgba(101,231,255,.2); background: #050c0e; box-shadow: 0 28px 80px rgba(0,0,0,.35),inset 0 1px rgba(101,231,255,.08); }
 .talk-stage::before { content: ''; position: absolute; z-index: -1; top: 0; left: 0; width: 34%; height: 2px; background: linear-gradient(90deg,transparent,var(--cyan),transparent); box-shadow: 0 0 25px rgba(101,231,255,.6); animation: talkSignal 6s linear infinite; animation-play-state: paused; }
-.talk-stage::after { content: ''; position: absolute; z-index: -2; inset: 0; background: linear-gradient(rgba(101,231,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(101,231,255,.035) 1px,transparent 1px); background-size: 42px 42px; pointer-events: none; }
+.talk-stage::after { content: ''; position: absolute; z-index: -2; inset: 0; background: radial-gradient(ellipse at 88% 38%,rgba(45,78,97,.25),transparent 55%),radial-gradient(ellipse at 6% 100%,rgba(20,46,37,.2),transparent 65%); pointer-events: none; }
 .talk-watermark { position: absolute; z-index: -1; right: -.02em; top: -.2em; font: 800 clamp(14rem,30vw,27rem)/1 var(--sans); letter-spacing: -.08em; color: transparent; -webkit-text-stroke: 1px rgba(101,231,255,.07); pointer-events: none; }
 .talk-copy { min-width: 0; }
 .talk-event { display: inline-flex; flex-wrap: wrap; gap: 0; border: 1px solid rgba(101,231,255,.3); margin-bottom: 1.5rem; font: .68rem var(--mono); letter-spacing: .12em; }
@@ -1305,16 +1305,8 @@ h3 {
 .talk-metrics dt { color: var(--muted); font: .67rem/1.5 var(--mono); margin-bottom: .6rem; }
 .talk-metrics dd { margin: 0; color: var(--text); font: 700 clamp(1.7rem,3.2vw,2.7rem)/1.15 var(--mono); letter-spacing: -.055em; }
 .talk-metrics dd span { display: block; margin-top: .5rem; color: var(--green); font: .68rem var(--mono); letter-spacing: 0; }
-.talk-flow { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; padding: 1.5rem 1rem; border: 1px solid rgba(101,231,255,.18); border-top: 0; background: rgba(3,13,12,.8); font: .7rem var(--mono); color: var(--soft); }
-.talk-flow span { display: flex; gap: .7rem; }
-.talk-flow b { color: var(--cyan); font-weight: 400; }
-.talk-flow i { color: var(--green); font-style: normal; animation: talkPulse 3s ease-in-out infinite; animation-play-state: paused; }
-.talk-flow i:nth-of-type(2) { animation-delay: 1s; }
-.talk-flow i:nth-of-type(3) { animation-delay: 2s; }
-#talks[data-talk-motion="running"] .talk-stage::before,#talks[data-talk-motion="running"] .talk-flow i { animation-play-state: running; }
-.talk-footnote { margin: 1rem 0 0; color: var(--muted); font: .67rem/1.7 var(--mono); }
+#talks[data-talk-motion="running"] .talk-stage::before { animation-play-state: running; }
 @keyframes talkSignal { from { transform: translateX(-100%); } to { transform: translateX(400%); } }
-@keyframes talkPulse { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
 
 body.deck-open { overflow: hidden; }
 .talk-deck { width: min(1180px,calc(100vw - 3rem)); max-height: calc(100dvh - 2rem); padding: 1.25rem; border: 1px solid var(--line-strong); background: #050e0d; color: var(--text); box-shadow: var(--shadow); }
@@ -1356,9 +1348,6 @@ body.deck-open { overflow: hidden; }
   .talk-metrics div:last-child { grid-column: 1/-1; }
   .talk-metrics dd { font-size: 2.4rem; }
   .talk-metrics dt { font-size: .65rem; }
-  .talk-flow { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem .7rem; padding: 1.2rem; font-size: .64rem; }
-  .talk-flow i { display: none; }
-  .talk-flow span { gap: .5rem; }
   .talk-deck { width: calc(100vw - 1rem); padding: .75rem; }
   .talk-deck-header h2 { font-size: .85rem; }
   .talk-deck-controls { gap: .5rem; }
@@ -1366,6 +1355,6 @@ body.deck-open { overflow: hidden; }
   .talk-deck-hint { font-size: .55rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .talk-stage::before,.talk-flow i { animation: none; }
+  .talk-stage::before { animation: none; }
   .talk-poster,.talk-poster:hover,.talk-poster:focus-visible { transform: none; }
 }

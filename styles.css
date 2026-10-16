@@ -1292,16 +1292,19 @@ h3 {
 }
 .photo-stage[data-dragging] { cursor: grabbing; }
 .photo-stage[data-dragging] .stage-photo { transition: none; }
+.stage-photo:nth-child(1) { --photo-rest-x: 0deg; --photo-rest-y: -1deg; --photo-rest-z: -1deg; }
+.stage-photo:nth-child(2) { --photo-rest-x: -2deg; --photo-rest-y: 6deg; --photo-rest-z: 5deg; }
+.stage-photo:nth-child(3) { --photo-rest-x: 2deg; --photo-rest-y: -4deg; --photo-rest-z: -3deg; }
 .stage-photo[data-position="active"] {
   z-index: 3; opacity: 1;
-  transform: translateX(-50%) translateZ(48px) rotateX(calc(5deg + var(--photo-tilt-x,0deg))) rotateY(calc(-13deg + var(--photo-tilt-y,0deg))) rotateZ(-2deg);
+  transform: translateX(-50%) translateZ(48px) rotateX(calc(5deg + var(--photo-rest-x) + var(--photo-tilt-x,0deg))) rotateY(calc(-13deg + var(--photo-rest-y) + var(--photo-tilt-y,0deg))) rotateZ(calc(-2deg + var(--photo-rest-z)));
 }
 .stage-photo[data-position="previous"] {
-  z-index: 1; transform: translateX(-112%) translateZ(-180px) rotateX(4deg) rotateY(44deg) rotateZ(-8deg);
+  z-index: 1; transform: translateX(-112%) translateZ(-180px) rotateX(calc(4deg + var(--photo-rest-x))) rotateY(calc(44deg + var(--photo-rest-y))) rotateZ(calc(-8deg + var(--photo-rest-z)));
   opacity: .72; filter: brightness(.68);
 }
 .stage-photo[data-position="next"] {
-  z-index: 2; transform: translateX(12%) translateZ(-180px) rotateX(4deg) rotateY(-44deg) rotateZ(8deg);
+  z-index: 2; transform: translateX(12%) translateZ(-180px) rotateX(calc(4deg + var(--photo-rest-x))) rotateY(calc(-44deg + var(--photo-rest-y))) rotateZ(calc(8deg + var(--photo-rest-z)));
   opacity: .76; filter: brightness(.72);
 }
 .photo-face {

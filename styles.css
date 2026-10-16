@@ -1263,17 +1263,67 @@ h3 {
 /* Stage photos: real perspective and depth, moved only by the visitor. */
 .speaking-feature { display: grid; grid-template-columns: minmax(0,1.3fr) minmax(0,1fr); align-items: center; gap: clamp(2rem,5vw,5rem); }
 .stage-gallery { min-width: 0; }
-.photo-stage { position: relative; height: 530px; isolation: isolate; perspective: 1400px; overflow: clip; touch-action: pan-y pinch-zoom; cursor: grab; user-select: none; }
-.photo-stage::after { content: ''; position: absolute; z-index: -1; inset: auto 8% 1rem; height: 5rem; background: radial-gradient(ellipse,rgba(73,142,163,.16),transparent 70%); }
-.stage-photo { position: absolute; top: 1.5rem; left: 50%; margin: 0; width: min(70%,340px); height: 470px; border: 1px solid rgba(170,211,220,.45); border-radius: 4px; background: #091011; box-shadow: 0 25px 50px rgba(0,0,0,.65),5px 4px 0 #142829,6px 5px 0 #345050; transform-origin: center; translate: var(--gallery-drag-x,0px) 0; rotate: y var(--gallery-drag-yaw,0deg); transition: transform 650ms cubic-bezier(.22,.75,.18,1),translate 650ms cubic-bezier(.22,.75,.18,1),rotate 650ms cubic-bezier(.22,.75,.18,1),opacity 650ms,filter 650ms; will-change: transform; }
+.photo-stage {
+  position: relative; height: 560px; isolation: isolate; perspective: 1000px;
+  overflow: clip; touch-action: pan-y pinch-zoom; cursor: grab; user-select: none;
+}
+.photo-stage::after {
+  content: ''; position: absolute; z-index: -1; inset: auto 9% 1.2rem; height: 4.5rem;
+  background: radial-gradient(ellipse,rgba(0,0,0,.8),transparent 72%);
+}
+.stage-photo {
+  position: absolute; top: 2.3rem; left: 50%; margin: 0; width: min(70%,340px); height: 460px;
+  border: 1px solid #506360; border-radius: 17px; background: #101b19;
+  box-shadow: 0 35px 42px -16px rgba(0,0,0,.95),0 10px 18px rgba(0,0,0,.5);
+  transform-style: preserve-3d; transform-origin: center;
+  translate: var(--gallery-drag-x,0px) 0; rotate: y var(--gallery-drag-yaw,0deg);
+  transition: transform 650ms cubic-bezier(.22,.75,.18,1),translate 650ms cubic-bezier(.22,.75,.18,1),rotate 650ms cubic-bezier(.22,.75,.18,1),opacity 650ms,filter 650ms;
+  will-change: transform;
+}
+.stage-photo::before {
+  content: ''; position: absolute; inset: -1px; border: 1px solid #3b5350; border-radius: inherit;
+  background: #07100e; transform: translateZ(-12px);
+  box-shadow: 2px 3px 0 #07110f,4px 5px 0 #243a35;
+}
+.stage-photo::after {
+  content: ''; position: absolute; top: 8px; bottom: 8px; right: -12px; width: 12px;
+  background: linear-gradient(90deg,#617973,#1c302b 35%,#0c1814 85%,#40574f);
+  transform: rotateY(90deg); transform-origin: left; border-block: 1px solid #466057;
+}
 .photo-stage[data-dragging] { cursor: grabbing; }
 .photo-stage[data-dragging] .stage-photo { transition: none; }
-.stage-photo[data-position="active"] { z-index: 3; transform: translateX(-50%) translateZ(30px) rotateY(-5deg) rotateZ(-1deg); opacity: 1; }
-.stage-photo[data-position="previous"] { z-index: 1; transform: translateX(-107%) translateZ(-160px) rotateY(32deg) rotateZ(-7deg); opacity: .5; filter: brightness(.6); }
-.stage-photo[data-position="next"] { z-index: 2; transform: translateX(7%) translateZ(-160px) rotateY(-32deg) rotateZ(7deg); opacity: .55; filter: brightness(.65); }
-.stage-photo img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 54% 42%; border-radius: inherit; user-select: none; -webkit-user-drag: none; }
-.stage-photo figcaption { position: absolute; inset: auto 0 0; padding: 3.5rem 1.4rem 1.3rem; background: linear-gradient(transparent,rgba(0,5,7,.94)); color: #edfff7; pointer-events: none; }
-.stage-photo figcaption span { font: .58rem var(--mono); color: #a9e4ee; letter-spacing: .14em; }
+.stage-photo[data-position="active"] {
+  z-index: 3; opacity: 1;
+  transform: translateX(-50%) translateZ(48px) rotateX(calc(5deg + var(--photo-tilt-x,0deg))) rotateY(calc(-13deg + var(--photo-tilt-y,0deg))) rotateZ(-2deg);
+}
+.stage-photo[data-position="previous"] {
+  z-index: 1; transform: translateX(-112%) translateZ(-180px) rotateX(4deg) rotateY(44deg) rotateZ(-8deg);
+  opacity: .72; filter: brightness(.68);
+}
+.stage-photo[data-position="next"] {
+  z-index: 2; transform: translateX(12%) translateZ(-180px) rotateX(4deg) rotateY(-44deg) rotateZ(8deg);
+  opacity: .76; filter: brightness(.72);
+}
+.photo-face {
+  position: absolute; inset: 0; padding: 7px; overflow: hidden; border-radius: inherit;
+  background: linear-gradient(135deg,#53615b,#1d2a25 13%,#111c17 65%,#3c5047);
+  transform: translateZ(1px); box-shadow: inset 0 1px rgba(241,255,245,.6),inset 1px 0 rgba(222,255,240,.25),inset 0 -1px #020604;
+}
+.photo-face::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(ellipse at var(--photo-light-x,30%) var(--photo-light-y,12%),rgba(226,255,238,.16),transparent 60%),linear-gradient(120deg,rgba(255,255,255,.12),transparent 32%,transparent 72%,rgba(158,211,183,.06));
+  box-shadow: inset 0 0 0 1px rgba(225,255,238,.12);
+}
+.stage-photo img {
+  display: block; width: 100%; height: 100%; object-fit: cover; object-position: 54% 42%;
+  border-radius: 10px; user-select: none; -webkit-user-drag: none;
+}
+.stage-photo figcaption {
+  position: absolute; inset: auto 7px 7px; padding: 4rem 1.25rem 1.3rem;
+  border-radius: 0 0 10px 10px; background: linear-gradient(transparent,rgba(0,5,7,.94));
+  color: #edfff7; pointer-events: none; transform: translateZ(2px);
+}
+.stage-photo figcaption span { font: .58rem var(--mono); color: #b2d8c6; letter-spacing: .14em; }
 .stage-photo figcaption strong { display: block; margin-top: .55rem; font-size: 1.65rem; line-height: 1.12; letter-spacing: -.04em; }
 .photo-navigation { display: flex; align-items: center; gap: 1rem; padding-inline: 1rem; }
 .photo-navigation button { flex: 0 0 44px; width: 44px; height: 44px; padding: 0; border: 1px solid var(--line); border-radius: 50%; color: var(--green); background: #07100d; font: 1.2rem var(--mono); cursor: pointer; transition: border-color 160ms,background 160ms; }
@@ -1309,8 +1359,8 @@ h3 {
 }
 @media (max-width: 680px) {
   #talks .section-heading { flex-direction: column; align-items: flex-start; gap: .75rem; }
-  .photo-stage { height: 425px; perspective: 1000px; }
-  .stage-photo { top: 1.5rem; width: 72%; height: 365px; }
+  .photo-stage { height: 445px; perspective: 900px; }
+  .stage-photo { top: 2rem; width: 72%; height: 365px; }
   .stage-photo figcaption { padding: 2.5rem 1rem 1rem; }
   .stage-photo figcaption strong { font-size: 1.4rem; }
   .photo-navigation { padding: 0; gap: .6rem; }

@@ -6,7 +6,7 @@ async function openTalk(page) {
   await page.locator('#intro-screen').click();
   await expect(page.locator('#intro-screen')).toHaveCount(0);
   await page.evaluate(() => { document.documentElement.style.scrollBehavior = 'auto'; document.querySelector('#talks').scrollIntoView(); });
-  await expect(page.locator('#talks')).toHaveClass(/matrix-revealed/);
+  await expect(page.locator('#talks')).toHaveClass(/matrix-reveal-settled/);
 }
 
 test('photo gallery wraps in both directions and remains usable from the keyboard', async ({ page }) => {
@@ -132,4 +132,19 @@ test('an interrupted or tiny drag returns the photos without changing the select
   await page.mouse.move(x + 110, y, { steps: 5 });
   await page.mouse.up();
   await expect(page.locator('[data-photo-status]')).toContainText('03 / 03');
+});
+
+test('the front photo tilts toward the mouse and settles when the mouse leaves', async ({ page }) => {
+  await openTalk(page);
+  const stage = page.locator('[data-photo-stage]');
+  await stage.scrollIntoViewIfNeeded();
+  await page.mouse.move(10, 10);
+  const photo = stage.locator('[data-position="active"]');
+  const rest = await photo.evaluate(el => getComputedStyle(el).transform);
+  const box = await photo.boundingBox();
+  await page.mouse.move(box.x + box.width * .75, box.y + box.height * .25);
+  await expect.poll(() => photo.evaluate(el => getComputedStyle(el).transform)).not.toBe(rest);
+  await page.mouse.move(10, 10);
+  await expect.poll(() => photo.evaluate(el => getComputedStyle(el).transform)).toBe(rest);
+  await expect(page.locator('[data-photo-status]')).toContainText('01 / 03');
 });

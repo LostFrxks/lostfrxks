@@ -6,6 +6,21 @@ export function setupSpeakingGallery() {
   const stage = gallery.querySelector('[data-photo-stage]');
   let current = slides.findIndex(slide => slide.dataset.position === 'active');
   let gesture;
+  const hoverMotion = window.matchMedia('(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)');
+  function resetLight() {
+    for (const property of ['--photo-tilt-x', '--photo-tilt-y', '--photo-light-x', '--photo-light-y']) stage.style.removeProperty(property);
+  }
+  function followMouse(event) {
+    if (event.pointerType !== 'mouse' || !hoverMotion.matches) { resetLight(); return; }
+    const bounds = stage.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
+    const y = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height));
+    stage.style.setProperty('--photo-tilt-x', `${(0.5 - y) * 9}deg`);
+    stage.style.setProperty('--photo-tilt-y', `${(x - 0.5) * 14}deg`);
+    stage.style.setProperty('--photo-light-x', `${x * 100}%`);
+    stage.style.setProperty('--photo-light-y', `${y * 100}%`);
+  }
+  stage.addEventListener('pointerleave', resetLight);
 
   function showPhoto(value) {
     resetDrag();
@@ -26,6 +41,7 @@ export function setupSpeakingGallery() {
     showPhoto(event.key === 'Home' ? 0 : event.key === 'End' ? slides.length - 1 : current + (event.key === 'ArrowRight' ? 1 : -1));
   });
   function resetDrag() {
+    resetLight();
     const pointerId = gesture?.id;
     gesture = null;
     stage.removeAttribute('data-dragging');
@@ -43,7 +59,8 @@ export function setupSpeakingGallery() {
     stage.setPointerCapture(event.pointerId);
   });
   stage.addEventListener('pointermove', event => {
-    if (gesture?.id !== event.pointerId) return;
+    if (!gesture) { followMouse(event); return; }
+    if (gesture.id !== event.pointerId) return;
     const x = event.clientX - gesture.x;
     const y = event.clientY - gesture.y;
     if (!gesture.horizontal) {

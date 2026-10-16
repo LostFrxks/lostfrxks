@@ -3,7 +3,6 @@ export function setupSpeakingGallery() {
   if (!gallery) return;
   const slides = [...gallery.querySelectorAll('[data-photo-slide]')];
   const status = gallery.querySelector('[data-photo-status]');
-  const caption = gallery.querySelector('[data-photo-caption]');
   const stage = gallery.querySelector('[data-photo-stage]');
   let current = slides.findIndex(slide => slide.dataset.position === 'active');
   let gesture;
@@ -17,7 +16,6 @@ export function setupSpeakingGallery() {
       slide.setAttribute('aria-hidden', String(offset !== 0));
     });
     status.textContent = `${String(current + 1).padStart(2, '0')} / ${String(slides.length).padStart(2, '0')}`;
-    caption.textContent = slides[current].dataset.caption;
   }
   gallery.querySelector('[data-photo-previous]').addEventListener('click', () => showPhoto(current - 1));
   gallery.querySelector('[data-photo-next]').addEventListener('click', () => showPhoto(current + 1));

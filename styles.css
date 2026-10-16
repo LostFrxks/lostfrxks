@@ -1280,7 +1280,6 @@ h3 {
 .photo-navigation button:hover { background: #10271f; border-color: var(--green); }
 .photo-status { flex: 1; min-width: 0; text-align: center; }
 .photo-status span { color: var(--green); font: .7rem var(--mono); letter-spacing: .12em; }
-.photo-status p { max-width: 37ch; min-height: 2.8em; margin: .5rem auto 0; font-size: .75rem; line-height: 1.4; color: var(--soft); }
 .photo-credit { display: block; width: fit-content; margin: 1.1rem auto 0; font: .6rem var(--mono); color: var(--muted); }
 .photo-credit:hover { color: var(--green); }
 .speaking-story { min-width: 0; padding: 1.6rem; background: rgba(4,12,10,.96); border-block: 1px solid var(--line); }
@@ -1315,7 +1314,6 @@ h3 {
   .stage-photo figcaption { padding: 2.5rem 1rem 1rem; }
   .stage-photo figcaption strong { font-size: 1.4rem; }
   .photo-navigation { padding: 0; gap: .6rem; }
-  .photo-status p { font-size: .67rem; }
   .speaking-story { padding: 1.3rem; }
   .speaking-story h3 { font-size: 2.5rem; }
   .speaking-meta { font-size: .6rem; }

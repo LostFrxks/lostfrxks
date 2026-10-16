@@ -1268,6 +1268,7 @@ h3 {
 .speaking-content p { max-width: 76ch; margin: 0; color: var(--soft); line-height: 1.8; }
 .speaking-content strong { color: var(--text); font-weight: 600; }
 @media (max-width: 680px) {
+  #talks .section-heading { flex-direction: column; align-items: flex-start; gap: .75rem; }
   .speaking-entry { grid-template-columns: 1fr; gap: 1rem; }
   .speaking-meta { flex-direction: row; flex-wrap: wrap; gap: .5rem 1rem; }
 }

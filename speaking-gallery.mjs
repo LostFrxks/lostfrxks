@@ -22,9 +22,9 @@ export function setupSpeakingGallery() {
   }
   stage.addEventListener('pointerleave', resetLight);
 
-  function showPhoto(value) {
-    resetDrag();
-    current = (value + slides.length) % slides.length;
+  function showPhoto(value, keepDrag = false) {
+    if (!keepDrag) resetDrag();
+    current = ((value % slides.length) + slides.length) % slides.length;
     slides.forEach((slide, index) => {
       const offset = (index - current + slides.length) % slides.length;
       slide.dataset.position = offset === 0 ? 'active' : offset === 1 ? 'next' : 'previous';
@@ -61,7 +61,7 @@ export function setupSpeakingGallery() {
   stage.addEventListener('pointermove', event => {
     if (!gesture) { followMouse(event); return; }
     if (gesture.id !== event.pointerId) return;
-    const x = event.clientX - gesture.x;
+    let x = event.clientX - gesture.x;
     const y = event.clientY - gesture.y;
     if (!gesture.horizontal) {
       if (Math.abs(y) > 8 && Math.abs(y) > Math.abs(x) * 1.2) { resetDrag(); return; }
@@ -70,16 +70,21 @@ export function setupSpeakingGallery() {
       stage.setAttribute('data-dragging', '');
     }
     const width = stage.clientWidth;
+    const distancePerPhoto = Math.max(80, Math.min(150, width * .3));
+    const steps = Math.trunc(x / distancePerPhoto);
+    if (steps) {
+      // Keep pointer capture and consume distance so this hold can keep browsing.
+      gesture.x += steps * distancePerPhoto;
+      showPhoto(current - steps, true);
+      x = event.clientX - gesture.x;
+    }
     const offset = Math.max(-width * .55, Math.min(width * .55, x));
     stage.style.setProperty('--gallery-drag-x', `${offset * .55}px`);
     stage.style.setProperty('--gallery-drag-yaw', `${offset / width * 25}deg`);
   });
   stage.addEventListener('pointerup', event => {
     if (gesture?.id !== event.pointerId) return;
-    const x = event.clientX - gesture.x;
-    const advance = gesture.horizontal && Math.abs(x) > 45;
     resetDrag();
-    if (advance) showPhoto(current + (x < 0 ? 1 : -1));
   });
   stage.addEventListener('pointercancel', resetDrag);
   stage.addEventListener('lostpointercapture', resetDrag);

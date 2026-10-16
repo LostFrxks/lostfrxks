@@ -61,8 +61,8 @@ test('narrow screen supports touch swipes without overflow or motion when reduce
   const box = await stage.boundingBox();
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + box.width * .8, y: box.y + 100 }] });
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: box.x + box.width * .5, y: box.y + 102 }] });
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: box.x + box.width * .2, y: box.y + 105 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: box.x + box.width * .6, y: box.y + 102 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: box.x + box.width * .4, y: box.y + 105 }] });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await cdp.detach();
   await expect(gallery.locator('[data-photo-status]')).toContainText('02 / 03');
@@ -88,24 +88,79 @@ test('failed intro loading leaves a working retry and a direct video link', asyn
 });
 
 
-test('photos follow a held mouse drag and settle after release outside the stage', async ({ page }) => {
+test('one held mouse drag switches photos repeatedly and reverses before release', async ({ page }) => {
   await openTalk(page);
   const stage = page.locator('[data-photo-stage]');
   await stage.scrollIntoViewIfNeeded();
   const photo = stage.locator('[data-position="active"]');
   const box = await photo.boundingBox();
-  const start = { x: box.x + box.width / 2, y: box.y + 120 };
-  await page.mouse.move(start.x, start.y);
+  const x = box.x + box.width / 2, y = box.y + 120;
+  const status = page.locator('[data-photo-status]');
+  await page.mouse.move(x, y);
   await page.mouse.down();
-  await page.mouse.move(start.x - 100, start.y + 3, { steps: 8 });
-  expect((await photo.boundingBox()).x).toBeLessThan(box.x - 20);
-  await expect(page.locator('[data-photo-status]')).toContainText('01 / 03');
-  const bounds = await stage.boundingBox();
-  await page.mouse.move(bounds.x - 20, start.y, { steps: 5 });
+  await page.mouse.move(x - 40, y + 3, { steps: 4 });
+  expect((await photo.boundingBox()).x).toBeLessThan(box.x - 10);
+  await expect(status).toContainText('01 / 03');
+  await page.mouse.move(x - 200, y + 3, { steps: 8 });
+  await expect(status).toContainText('02 / 03');
+  await expect(stage).toHaveCSS('cursor', 'grabbing');
+  const duration = await photo.evaluate(el => getComputedStyle(el).transitionDuration);
+  expect(duration.split(',').some(value => Number.parseFloat(value) > 0)).toBe(true);
+  await page.waitForTimeout(400);
+  await expect(status).toContainText('02 / 03');
+  await page.mouse.move(x - 400, y + 3, { steps: 8 });
+  await expect(status).toContainText('03 / 03');
+  await page.mouse.move(x - 100, y + 3, { steps: 8 });
+  await expect(status).toContainText('02 / 03');
+  await page.mouse.move(x + 650, y + 3);
+  await expect(status).toContainText('03 / 03');
   await page.mouse.up();
-  await expect(page.locator('[data-photo-status]')).toContainText('02 / 03');
+  await expect(status).toContainText('03 / 03');
   await expect(stage).toHaveCSS('cursor', 'grab');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(1440);
+});
+
+test('crossing a photo boundary keeps the held cards moving smoothly', async ({ page }) => {
+  await openTalk(page);
+  const stage = page.locator('[data-photo-stage]');
+  await stage.scrollIntoViewIfNeeded();
+  const photo = stage.locator('[data-photo-slide]').first();
+  const box = await photo.boundingBox();
+  const x = box.x + box.width / 2, y = box.y + 120;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - 149, y, { steps: 10 });
+  await page.waitForTimeout(250);
+  const before = await photo.boundingBox();
+  await page.mouse.move(x - 151, y);
+  const after = await photo.boundingBox();
+  await expect(page.locator('[data-photo-status]')).toContainText('02 / 03');
+  expect(Math.abs(after.x - before.x)).toBeLessThan(40);
+  await page.mouse.up();
+});
+
+test('one held touch gesture switches photos before the finger is lifted', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openTalk(page);
+  const stage = page.locator('[data-photo-stage]');
+  await stage.scrollIntoViewIfNeeded();
+  const box = await stage.boundingBox();
+  const cdp = await page.context().newCDPSession(page);
+  const status = page.locator('[data-photo-status]');
+  const touch = (type, fraction) => cdp.send('Input.dispatchTouchEvent', {
+    type, touchPoints: type === 'touchEnd' ? [] : [{ x: box.x + box.width * fraction, y: box.y + 100 }]
+  });
+  await touch('touchStart', .8);
+  await touch('touchMove', .6);
+  await touch('touchMove', .45);
+  await expect(status).toContainText('02 / 03');
+  await touch('touchMove', .2);
+  await touch('touchMove', .05);
+  await expect(status).toContainText('03 / 03');
+  await touch('touchEnd');
+  await expect(status).toContainText('03 / 03');
+  await expect(stage).toHaveCSS('cursor', 'grab');
+  await cdp.detach();
 });
 
 test('an interrupted or tiny drag returns the photos without changing the selection', async ({ page }) => {
@@ -117,7 +172,7 @@ test('an interrupted or tiny drag returns the photos without changing the select
   const x = box.x + box.width / 2, y = box.y + 120;
   await page.mouse.move(x, y);
   await page.mouse.down();
-  await page.mouse.move(x + 100, y, { steps: 5 });
+  await page.mouse.move(x + 40, y, { steps: 5 });
   await page.evaluate(() => window.dispatchEvent(new Event('blur')));
   await page.mouse.up();
   await expect(page.locator('[data-photo-status]')).toContainText('01 / 03');
@@ -129,7 +184,7 @@ test('an interrupted or tiny drag returns the photos without changing the select
   await expect(page.locator('[data-photo-status]')).toContainText('01 / 03');
   await page.mouse.move(x, y);
   await page.mouse.down();
-  await page.mouse.move(x + 110, y, { steps: 5 });
+  await page.mouse.move(x + 180, y, { steps: 5 });
   await page.mouse.up();
   await expect(page.locator('[data-photo-status]')).toContainText('03 / 03');
 });

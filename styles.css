@@ -1292,7 +1292,7 @@ h3 {
   transform: rotateY(90deg); transform-origin: left; border-block: 1px solid #466057;
 }
 .photo-stage[data-dragging] { cursor: grabbing; }
-.photo-stage[data-dragging] .stage-photo { transition: none; }
+.photo-stage[data-dragging] .stage-photo { transition-duration: 200ms; }
 .stage-photo:nth-child(1) { --photo-rest-x: 0deg; --photo-rest-y: -1deg; --photo-rest-z: -1deg; }
 .stage-photo:nth-child(2) { --photo-rest-x: -2deg; --photo-rest-y: 6deg; --photo-rest-z: 5deg; }
 .stage-photo:nth-child(3) { --photo-rest-x: 2deg; --photo-rest-y: -4deg; --photo-rest-z: -3deg; }
@@ -1381,6 +1381,6 @@ h3 {
   .stage-intro-label { font-size: .5rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .stage-photo,.photo-face::before,.photo-navigation button,.stage-play-icon { transition: none; }
+  .stage-photo,.photo-stage[data-dragging] .stage-photo,.photo-face::before,.photo-navigation button,.stage-play-icon { transition: none; }
   .stage-photo[data-position="active"] { transform: translateX(-50%); }
 }

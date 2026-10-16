@@ -1,6 +1,6 @@
 import { createIntroController } from './intro.mjs';
 import { createFrameClock } from './animation-clock.mjs';
-import { setupSpeakingGallery } from './speaking-gallery.mjs?v=depth-20261016';
+import { setupSpeakingGallery } from './speaking-gallery.mjs?v=held-browse-20261016';
 
 (function () {
   const canvas = document.getElementById('matrix-canvas');

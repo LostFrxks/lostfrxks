@@ -148,3 +148,46 @@ test('the front photo tilts toward the mouse and settles when the mouse leaves',
   await expect.poll(() => photo.evaluate(el => getComputedStyle(el).transform)).toBe(rest);
   await expect(page.locator('[data-photo-status]')).toContainText('01 / 03');
 });
+
+test('every card stays inside the gallery at every resting position', async ({ page }) => {
+  for (const width of [1440, 320]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await openTalk(page);
+    const stage = page.locator('[data-photo-stage]');
+    for (let position = 0; position < 3; position++) {
+      if (position) await page.getByRole('button', { name: 'Next photo' }).click();
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(750);
+      const bounds = await stage.boundingBox();
+      for (const card of await stage.locator('[data-photo-slide]').all()) {
+        const box = await card.boundingBox();
+        expect(box.x, `left edge at ${width}px, position ${position + 1}`).toBeGreaterThanOrEqual(bounds.x + 4);
+        expect(box.x + box.width, `right edge at ${width}px, position ${position + 1}`).toBeLessThanOrEqual(bounds.x + bounds.width - 4);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+    }
+  }
+});
+
+test('the light returns gradually after the pointer leaves the gallery', async ({ page }) => {
+  await openTalk(page);
+  const stage = page.locator('[data-photo-stage]');
+  await stage.scrollIntoViewIfNeeded();
+  await page.mouse.move(10, 10);
+  const face = stage.locator('[data-position="active"] .photo-face');
+  const lightTransform = () => face.evaluate(el => getComputedStyle(el, '::before').transform);
+  const rest = await lightTransform();
+  const box = await stage.boundingBox();
+  await page.mouse.move(box.x + box.width * .75, box.y + box.height * .3);
+  await expect.poll(lightTransform).not.toBe(rest);
+  await page.waitForTimeout(700);
+  const held = await lightTransform();
+  await page.mouse.move(10, 10);
+  let returning;
+  await expect.poll(async () => {
+    returning = await lightTransform();
+    return returning;
+  }, { intervals: [16, 32, 50] }).not.toBe(held);
+  expect(returning).not.toBe(rest);
+  await expect.poll(lightTransform).toBe(rest);
+});

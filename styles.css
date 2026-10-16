@@ -1263,9 +1263,11 @@ h3 {
 /* Stage photos: real perspective and depth, moved only by the visitor. */
 .speaking-feature { display: grid; grid-template-columns: minmax(0,1.3fr) minmax(0,1fr); align-items: center; gap: clamp(2rem,5vw,5rem); }
 .stage-gallery { min-width: 0; }
-.photo-stage { position: relative; height: 530px; isolation: isolate; perspective: 1400px; overflow: clip; touch-action: pan-y pinch-zoom; }
+.photo-stage { position: relative; height: 530px; isolation: isolate; perspective: 1400px; overflow: clip; touch-action: pan-y pinch-zoom; cursor: grab; user-select: none; }
 .photo-stage::after { content: ''; position: absolute; z-index: -1; inset: auto 8% 1rem; height: 5rem; background: radial-gradient(ellipse,rgba(73,142,163,.16),transparent 70%); }
-.stage-photo { position: absolute; top: 1.5rem; left: 50%; margin: 0; width: min(70%,340px); height: 470px; border: 1px solid rgba(170,211,220,.45); border-radius: 4px; background: #091011; box-shadow: 0 25px 50px rgba(0,0,0,.65),5px 4px 0 #142829,6px 5px 0 #345050; transform-origin: center; transition: transform 650ms cubic-bezier(.22,.75,.18,1),opacity 650ms,filter 650ms; will-change: transform; }
+.stage-photo { position: absolute; top: 1.5rem; left: 50%; margin: 0; width: min(70%,340px); height: 470px; border: 1px solid rgba(170,211,220,.45); border-radius: 4px; background: #091011; box-shadow: 0 25px 50px rgba(0,0,0,.65),5px 4px 0 #142829,6px 5px 0 #345050; transform-origin: center; translate: var(--gallery-drag-x,0px) 0; rotate: y var(--gallery-drag-yaw,0deg); transition: transform 650ms cubic-bezier(.22,.75,.18,1),translate 650ms cubic-bezier(.22,.75,.18,1),rotate 650ms cubic-bezier(.22,.75,.18,1),opacity 650ms,filter 650ms; will-change: transform; }
+.photo-stage[data-dragging] { cursor: grabbing; }
+.photo-stage[data-dragging] .stage-photo { transition: none; }
 .stage-photo[data-position="active"] { z-index: 3; transform: translateX(-50%) translateZ(30px) rotateY(-5deg) rotateZ(-1deg); opacity: 1; }
 .stage-photo[data-position="previous"] { z-index: 1; transform: translateX(-107%) translateZ(-160px) rotateY(32deg) rotateZ(-7deg); opacity: .5; filter: brightness(.6); }
 .stage-photo[data-position="next"] { z-index: 2; transform: translateX(7%) translateZ(-160px) rotateY(-32deg) rotateZ(7deg); opacity: .55; filter: brightness(.65); }

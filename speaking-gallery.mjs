@@ -5,10 +5,11 @@ export function setupSpeakingGallery() {
   const status = gallery.querySelector('[data-photo-status]');
   const caption = gallery.querySelector('[data-photo-caption]');
   const stage = gallery.querySelector('[data-photo-stage]');
-  let current = 0;
+  let current = slides.findIndex(slide => slide.dataset.position === 'active');
   let gesture;
 
   function showPhoto(value) {
+    resetDrag();
     current = (value + slides.length) % slides.length;
     slides.forEach((slide, index) => {
       const offset = (index - current + slides.length) % slides.length;
@@ -26,20 +27,48 @@ export function setupSpeakingGallery() {
     event.preventDefault();
     showPhoto(event.key === 'Home' ? 0 : event.key === 'End' ? slides.length - 1 : current + (event.key === 'ArrowRight' ? 1 : -1));
   });
+  function resetDrag() {
+    const pointerId = gesture?.id;
+    gesture = null;
+    stage.removeAttribute('data-dragging');
+    // Restore transitions before clearing the held position, so release settles smoothly.
+    if (stage.style.getPropertyValue('--gallery-drag-x')) stage.getBoundingClientRect();
+    stage.style.removeProperty('--gallery-drag-x');
+    stage.style.removeProperty('--gallery-drag-yaw');
+    if (pointerId !== undefined && stage.hasPointerCapture(pointerId)) stage.releasePointerCapture(pointerId);
+  }
+  stage.addEventListener('dragstart', event => event.preventDefault());
   stage.addEventListener('pointerdown', event => {
-    if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) { gesture = null; return; }
-    gesture = { id: event.pointerId, x: event.clientX, y: event.clientY };
-    stage.setPointerCapture?.(event.pointerId);
+    if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    resetDrag();
+    gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, horizontal: false };
+    stage.setPointerCapture(event.pointerId);
+  });
+  stage.addEventListener('pointermove', event => {
+    if (gesture?.id !== event.pointerId) return;
+    const x = event.clientX - gesture.x;
+    const y = event.clientY - gesture.y;
+    if (!gesture.horizontal) {
+      if (Math.abs(y) > 8 && Math.abs(y) > Math.abs(x) * 1.2) { resetDrag(); return; }
+      if (Math.abs(x) < 6 || Math.abs(x) <= Math.abs(y) * 1.4) return;
+      gesture.horizontal = true;
+      stage.setAttribute('data-dragging', '');
+    }
+    const width = stage.clientWidth;
+    const offset = Math.max(-width * .55, Math.min(width * .55, x));
+    stage.style.setProperty('--gallery-drag-x', `${offset * .55}px`);
+    stage.style.setProperty('--gallery-drag-yaw', `${offset / width * 25}deg`);
   });
   stage.addEventListener('pointerup', event => {
     if (gesture?.id !== event.pointerId) return;
     const x = event.clientX - gesture.x;
-    const y = event.clientY - gesture.y;
-    if (Math.abs(x) > 45 && Math.abs(x) > Math.abs(y) * 1.4) showPhoto(current + (x < 0 ? 1 : -1));
-    gesture = null;
+    const advance = gesture.horizontal && Math.abs(x) > 45;
+    resetDrag();
+    if (advance) showPhoto(current + (x < 0 ? 1 : -1));
   });
-  stage.addEventListener('pointercancel', () => { gesture = null; });
-  stage.addEventListener('lostpointercapture', () => { gesture = null; });
+  stage.addEventListener('pointercancel', resetDrag);
+  stage.addEventListener('lostpointercapture', resetDrag);
+  window.addEventListener('blur', resetDrag);
 
   const video = document.querySelector('[data-stage-video]');
   const play = document.querySelector('[data-stage-play]');

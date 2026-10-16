@@ -45,7 +45,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
       rel="stylesheet"
     >
-    <link rel="stylesheet" href="styles.css?v=mdconf-stage-20261014">
+    <link rel="stylesheet" href="styles.css?v=speaking-note-20261016">
   </head>
   <body class="intro-active">
     <canvas id="matrix-canvas" aria-hidden="true"></canvas>
@@ -420,38 +420,18 @@
         </div>
       </section>
 
-      <section id="talks" class="section-band speaking-band" aria-labelledby="talks-title" data-talk-motion="paused">
+      <section id="talks" class="section-band" aria-labelledby="talks-title">
         <div class="section-inner">
-          <div class="talk-topline">
-            <p class="section-kicker">talks --from-production-to-stage</p>
-            <span class="talk-status"><i aria-hidden="true"></i> PUBLIC SPEAKING / 001</span>
+          <div class="section-heading">
+            <p class="section-kicker">talks --public-speaking</p>
+            <h2 id="talks-title">Public Speaking</h2>
           </div>
-          <article class="talk-stage">
-            <span class="talk-watermark" aria-hidden="true">MD</span>
-            <div class="talk-copy">
-              <div class="talk-event"><span>MD CONF</span><span>2026</span><span>SPEAKER</span></div>
-              <h2 id="talks-title"><span>250,000</span> products.<br><em>One AI pipeline.</em></h2>
-              <p class="talk-description">From messy product descriptions to structured attributes. A real MMarket case: one orchestrator, 40 AI agents, and a catalog people can actually filter.</p>
-              <div class="talk-location"><time datetime="2026-09-19">19 Sep 2026</time><span aria-hidden="true">/</span><span>Meta Hall · Bishkek</span></div>
-              <div class="talk-actions">
-                <button class="talk-action-primary" type="button" data-open-talk aria-label="View the 15-slide presentation"><span>View presentation</span><span aria-hidden="true">↗</span></button>
-                <a class="talk-action-secondary" href="assets/talks/mdconf-2026/artur-usenov-mdconf-2026.pdf" download="artur-usenov-mdconf-2026.pdf">Download PDF <span aria-hidden="true">↓</span></a>
-              </div>
-              <a class="talk-source" href="https://docs.google.com/presentation/d/1Yz8wQllowqjtcKnuLS4HyaBj7IaRF8S-tE8SXgpzGqo/edit" target="_blank" rel="noopener noreferrer">Google Slides <span aria-hidden="true">↗</span></a>
+          <article class="speaking-entry">
+            <div class="speaking-meta"><time datetime="2026-09-19">19 Sep 2026</time><span>Bishkek</span></div>
+            <div class="speaking-content">
+              <h3>MD CONF · From AI experiments to business results</h3>
+              <p>Spoke about the business impact of AI at MMarket: using <strong>$50,000 in AI credits</strong> to automate a 250,000-product catalog and generate <strong>+$250,000 in company revenue</strong>.</p>
             </div>
-            <div class="talk-visual">
-              <div class="talk-poster-label"><span>THE TALK / FINAL DECK</span><span>15 SLIDES</span></div>
-              <button class="talk-poster" type="button" data-open-talk aria-label="Open the MD CONF slide deck">
-                <img src="assets/talks/mdconf-2026/slide-01.png" width="1600" height="900" loading="lazy" decoding="async" alt="Final MD CONF presentation cover: 250 000 товаров. Один пайплайн. Артур Усенов, MMarket.">
-                <span class="talk-poster-open"><span aria-hidden="true">▶</span> Explore the deck</span>
-              </button>
-              <div class="talk-poster-foot"><span>ARTUR USENOV / MMARKET</span><a href="https://mdconf.mdigital.kg/" target="_blank" rel="noopener noreferrer">Conference ↗</a></div>
-            </div>
-            <dl class="talk-metrics" aria-label="Figures from the presentation">
-              <div><dt>Concurrent AI agents</dt><dd>40<span>workers</span></dd></div>
-              <div><dt>Products in each batch</dt><dd>50<span>products</span></dd></div>
-              <div><dt>Attribute records after upload</dt><dd>2,159,215<span>from 720,673</span></dd></div>
-            </dl>
           </article>
         </div>
       </section>
@@ -641,15 +621,8 @@
       </section>
     </main>
 
-    <dialog id="talk-deck" class="talk-deck" aria-labelledby="talk-deck-title">
-      <div class="talk-deck-header"><div><span>MD CONF / 19 SEP 2026</span><h2 id="talk-deck-title">250,000 products. One AI pipeline.</h2></div><button type="button" data-talk-close aria-label="Close presentation" autofocus>×</button></div>
-      <div class="talk-deck-image"><img data-talk-slide width="1600" height="900" alt="" decoding="async"></div>
-      <div class="talk-deck-controls"><button type="button" data-talk-previous aria-label="Previous slide">←</button><div aria-live="polite"><span data-talk-counter></span><p data-talk-caption></p></div><button type="button" data-talk-next aria-label="Next slide">→</button></div>
-      <p class="talk-deck-hint">← → to navigate · Esc to close · swipe on mobile</p>
-    </dialog>
-
     <script src="ascii-torus.js?v=viewport-motion-20261014"></script>
-    <script type="module" src="app.js?v=mdconf-speaking-20261014"></script>
+    <script type="module" src="app.js?v=speaking-note-20261016"></script>
     <script type="module" src="analytics.mjs?v=visit-cards-20261014"></script>
   </body>
 </html>

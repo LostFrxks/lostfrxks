@@ -1264,7 +1264,7 @@ h3 {
 .speaking-feature { display: grid; grid-template-columns: minmax(0,1.3fr) minmax(0,1fr); align-items: center; gap: clamp(2rem,5vw,5rem); }
 .stage-gallery { min-width: 0; }
 .photo-stage {
-  position: relative; height: 560px; transform-style: preserve-3d; perspective: 1000px; container-type: inline-size;
+  position: relative; height: 560px; isolation: isolate; perspective: 1000px; container-type: inline-size;
   overflow: visible; touch-action: pan-y pinch-zoom; cursor: grab; user-select: none;
 }
 .photo-stage::after {
@@ -1272,13 +1272,13 @@ h3 {
   background: radial-gradient(ellipse,rgba(0,0,0,.8),transparent 72%);
 }
 .stage-photo {
-  --photo-spread: clamp(20px,calc((100cqw - min(72cqw,340px)) * .5 - 14px),130px);
   position: absolute; top: 2.3rem; left: 50%; margin: 0; width: min(70%,340px); height: 460px;
   border: 1px solid #506360; border-radius: 17px; background: #101b19;
   box-shadow: 0 35px 42px -16px rgba(0,0,0,.95),0 10px 18px rgba(0,0,0,.5);
   transform-style: preserve-3d; transform-origin: center;
-  translate: var(--gallery-drag-x,0px) 0; rotate: y var(--gallery-drag-yaw,0deg);
-  transition: transform 650ms cubic-bezier(.22,.75,.18,1),translate 650ms cubic-bezier(.22,.75,.18,1),rotate 650ms cubic-bezier(.22,.75,.18,1),opacity 650ms,filter 650ms;
+  z-index: var(--photo-order,3); opacity: 1;
+  transform: translateX(-50%) scale3d(var(--photo-fit,1),var(--photo-fit,1),var(--photo-fit,1)) translate3d(var(--photo-orbit-x,0px),0,var(--photo-orbit-z,48px)) rotateX(calc(var(--photo-orbit-pitch,4deg) + var(--photo-rest-x))) rotateY(calc(var(--photo-orbit-yaw,-13deg) + var(--photo-rest-y))) rotateZ(calc(var(--photo-orbit-roll,-2deg) + var(--photo-rest-z)));
+  transition: none;
   will-change: transform;
 }
 .stage-photo::before {
@@ -1292,25 +1292,9 @@ h3 {
   transform: rotateY(90deg); transform-origin: left; border-block: 1px solid #466057;
 }
 .photo-stage[data-dragging] { cursor: grabbing; }
-.photo-stage[data-dragging] .stage-photo {
-  transition-duration: 550ms;
-  transition-timing-function: cubic-bezier(.25,.1,.25,1);
-}
 .stage-photo:nth-child(1) { --photo-rest-x: 0deg; --photo-rest-y: -1deg; --photo-rest-z: -1deg; }
 .stage-photo:nth-child(2) { --photo-rest-x: -2deg; --photo-rest-y: 6deg; --photo-rest-z: 5deg; }
 .stage-photo:nth-child(3) { --photo-rest-x: 2deg; --photo-rest-y: -4deg; --photo-rest-z: -3deg; }
-.stage-photo[data-position="active"] {
-  z-index: 3; opacity: 1;
-  transform: translateX(-50%) translateZ(48px) rotateX(calc(5deg + var(--photo-rest-x) + var(--photo-tilt-x,0deg))) rotateY(calc(-13deg + var(--photo-rest-y) + var(--photo-tilt-y,0deg))) rotateZ(calc(-2deg + var(--photo-rest-z)));
-}
-.stage-photo[data-position="previous"] {
-  z-index: 1; transform: translateX(calc(-50% - var(--photo-spread))) translateZ(-180px) rotateX(calc(4deg + var(--photo-rest-x))) rotateY(calc(44deg + var(--photo-rest-y))) rotateZ(calc(-8deg + var(--photo-rest-z)));
-  opacity: .72; filter: brightness(.68);
-}
-.stage-photo[data-position="next"] {
-  z-index: 2; transform: translateX(calc(-50% + var(--photo-spread))) translateZ(-180px) rotateX(calc(4deg + var(--photo-rest-x))) rotateY(calc(-44deg + var(--photo-rest-y))) rotateZ(calc(8deg + var(--photo-rest-z)));
-  opacity: .76; filter: brightness(.72);
-}
 .photo-face {
   position: absolute; inset: 0; padding: 7px; overflow: hidden; border-radius: inherit;
   background: linear-gradient(135deg,#53615b,#1d2a25 13%,#111c17 65%,#3c5047);
@@ -1329,7 +1313,7 @@ h3 {
 }
 .stage-photo img {
   display: block; width: 100%; height: 100%; object-fit: cover; object-position: 54% 42%;
-  border-radius: 10px; user-select: none; -webkit-user-drag: none;
+  border-radius: 10px; user-select: none; -webkit-user-drag: none; filter: brightness(var(--photo-brightness,1));
 }
 .stage-photo figcaption {
   position: absolute; inset: auto 7px 7px; padding: 4rem 1.25rem 1.3rem;
@@ -1373,7 +1357,7 @@ h3 {
 @media (max-width: 680px) {
   #talks .section-heading { flex-direction: column; align-items: flex-start; gap: .75rem; }
   .photo-stage { height: 445px; perspective: 900px; }
-  .stage-photo { top: 2rem; width: min(72%,340px); height: 365px; }
+  .stage-photo { top: 2rem; width: min(64%,340px); height: 365px; }
   .stage-photo figcaption { padding: 2.5rem 1rem 1rem; }
   .stage-photo figcaption strong { font-size: 1.4rem; }
   .photo-navigation { padding: 0; gap: .6rem; }
@@ -1385,5 +1369,4 @@ h3 {
 }
 @media (prefers-reduced-motion: reduce) {
   .stage-photo,.photo-stage[data-dragging] .stage-photo,.photo-face::before,.photo-navigation button,.stage-play-icon { transition: none; }
-  .stage-photo[data-position="active"] { transform: translateX(-50%); }
 }

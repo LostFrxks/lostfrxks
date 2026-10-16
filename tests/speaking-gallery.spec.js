@@ -104,18 +104,16 @@ test('one held mouse drag switches photos repeatedly and reverses before release
   await page.mouse.move(x - 200, y + 3, { steps: 8 });
   await expect(status).toContainText('02 / 03');
   await expect(stage).toHaveCSS('cursor', 'grabbing');
-  const duration = await photo.evaluate(el => getComputedStyle(el).transitionDuration);
-  expect(duration.split(',').some(value => Number.parseFloat(value) > 0)).toBe(true);
   await page.waitForTimeout(400);
   await expect(status).toContainText('02 / 03');
-  await page.mouse.move(x - 400, y + 3, { steps: 8 });
+  await page.mouse.move(x - 500, y + 3, { steps: 8 });
   await expect(status).toContainText('03 / 03');
-  await page.mouse.move(x - 100, y + 3, { steps: 8 });
+  await page.mouse.move(x - 200, y + 3, { steps: 8 });
   await expect(status).toContainText('02 / 03');
-  await page.mouse.move(x + 650, y + 3);
-  await expect(status).toContainText('03 / 03');
+  await page.mouse.move(x + 800, y + 3);
+  await expect(status).toContainText('01 / 03');
   await page.mouse.up();
-  await expect(status).toContainText('03 / 03');
+  await expect(status).toContainText('01 / 03');
   await expect(stage).toHaveCSS('cursor', 'grab');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(1440);
 });
@@ -129,13 +127,13 @@ test('crossing a photo boundary keeps the held cards moving smoothly', async ({ 
   const x = box.x + box.width / 2, y = box.y + 120;
   await page.mouse.move(x, y);
   await page.mouse.down();
-  await page.mouse.move(x - 149, y, { steps: 10 });
+  await page.mouse.move(x - 139, y, { steps: 10 });
   await page.waitForTimeout(250);
   const before = await photo.boundingBox();
   const overlap = { x: before.x + before.width * .75, y: before.y + before.height * .5 };
   const topCard = () => stage.evaluate((el, point) => [...el.querySelectorAll('[data-photo-slide]')].indexOf(document.elementFromPoint(point.x, point.y)?.closest('[data-photo-slide]')), overlap);
   expect(await topCard()).toBe(0);
-  await page.mouse.move(x - 151, y);
+  await page.mouse.move(x - 141, y);
   const after = await photo.boundingBox();
   expect(await topCard()).toBe(0);
   await expect(page.locator('[data-photo-status]')).toContainText('02 / 03');
@@ -228,6 +226,31 @@ test('every card stays inside the gallery at every resting position', async ({ p
   }
 });
 
+test('the whole orbit fits the gallery between resting positions', async ({ page }) => {
+  test.setTimeout(90000);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  for (const width of [320, 390, 680, 981, 1024, 1100, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await openTalk(page);
+    const stage = page.locator('[data-photo-stage]');
+    await stage.scrollIntoViewIfNeeded();
+    const box = await stage.boundingBox();
+    const distance = Math.max(100, Math.min(280, box.width * .45));
+    const x = box.x + box.width * .6, y = box.y + 130;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    for (let step = 0; step <= 36; step++) {
+      await page.mouse.move(x - distance * step / 12, y);
+      for (const card of await stage.locator('[data-photo-slide]').all()) {
+        const bounds = await card.boundingBox();
+        expect(bounds.x, `left edge at ${width}px, phase ${step / 12}`).toBeGreaterThanOrEqual(box.x + 4);
+        expect(bounds.x + bounds.width, `right edge at ${width}px, phase ${step / 12}`).toBeLessThanOrEqual(box.x + box.width - 4);
+      }
+    }
+    await page.mouse.up();
+  }
+});
+
 test('the light returns gradually after the pointer leaves the gallery', async ({ page }) => {
   await openTalk(page);
   const stage = page.locator('[data-photo-stage]');
@@ -249,4 +272,50 @@ test('the light returns gradually after the pointer leaves the gallery', async (
   }, { intervals: [16, 32, 50] }).not.toBe(held);
   expect(returning).not.toBe(rest);
   await expect.poll(lightTransform).toBe(rest);
+});
+
+for (const width of [1440, 390]) test(`rapid held reversals never slice one photo through another at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  await openTalk(page);
+  const stage = page.locator('[data-photo-stage]');
+  await stage.scrollIntoViewIfNeeded();
+  const box = await stage.boundingBox();
+  const x = box.x + box.width * .5, y = box.y + 130;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (const offset of [-220, 220, -260, 200, -180, 240]) {
+    await page.mouse.move(x + offset * (width < 500 ? .45 : 1), y, { steps: 3 });
+    await page.waitForTimeout(90);
+    const cuts = await stage.evaluate(el => {
+      const cross = (a,b) => [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+      const sub = (a,b) => a.map((v,i) => v-b[i]);
+      const dot = (a,b) => a.reduce((sum,v,i) => sum+v*b[i],0);
+      const planes = [...el.querySelectorAll('[data-photo-slide]')].map(card => {
+        const m = new DOMMatrix(getComputedStyle(card).transform);
+        const w = card.offsetWidth/2, h = card.offsetHeight/2;
+        return [[-w,-h],[w,-h],[w,h],[-w,h]].map(([x,y]) => {
+          const p = m.transformPoint(new DOMPoint(x,y,0));
+          return [p.x,p.y,p.z];
+        });
+      });
+      const cuts = [];
+      for (let a=0; a<planes.length; a++) for (let b=a+1; b<planes.length; b++) {
+        const p=planes[a],q=planes[b];
+        const pe=[sub(p[1],p[0]),sub(p[3],p[0])], qe=[sub(q[1],q[0]),sub(q[3],q[0])];
+        const pn=cross(...pe),qn=cross(...qe);
+        const axes=[pn,qn,...pe.flatMap(u=>qe.map(v=>cross(u,v))),...pe.map(v=>cross(pn,v)),...qe.map(v=>cross(qn,v))];
+        const separate=axes.some(axis=>{
+          const length=Math.hypot(...axis); if(length<.00001)return false;
+          const n=axis.map(v=>v/length),pp=p.map(v=>dot(v,n)),qq=q.map(v=>dot(v,n));
+          return Math.max(...pp)<Math.min(...qq)-.5 || Math.max(...qq)<Math.min(...pp)-.5;
+        });
+        if(!separate)cuts.push(`${a}/${b}`);
+      }
+      return cuts;
+    });
+    expect(cuts).toEqual([]);
+    const opacities = await stage.locator('[data-photo-slide]').evaluateAll(cards => cards.map(card => Number(getComputedStyle(card).opacity)));
+    expect(opacities).toEqual([1, 1, 1]);
+  }
+  await page.mouse.up();
 });

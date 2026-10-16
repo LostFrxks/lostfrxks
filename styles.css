@@ -1264,7 +1264,7 @@ h3 {
 .speaking-feature { display: grid; grid-template-columns: minmax(0,1.3fr) minmax(0,1fr); align-items: center; gap: clamp(2rem,5vw,5rem); }
 .stage-gallery { min-width: 0; }
 .photo-stage {
-  position: relative; height: 560px; isolation: isolate; perspective: 1000px; container-type: inline-size;
+  position: relative; height: 560px; transform-style: preserve-3d; perspective: 1000px; container-type: inline-size;
   overflow: visible; touch-action: pan-y pinch-zoom; cursor: grab; user-select: none;
 }
 .photo-stage::after {
@@ -1292,7 +1292,10 @@ h3 {
   transform: rotateY(90deg); transform-origin: left; border-block: 1px solid #466057;
 }
 .photo-stage[data-dragging] { cursor: grabbing; }
-.photo-stage[data-dragging] .stage-photo { transition-duration: 200ms; }
+.photo-stage[data-dragging] .stage-photo {
+  transition-duration: 550ms;
+  transition-timing-function: cubic-bezier(.25,.1,.25,1);
+}
 .stage-photo:nth-child(1) { --photo-rest-x: 0deg; --photo-rest-y: -1deg; --photo-rest-z: -1deg; }
 .stage-photo:nth-child(2) { --photo-rest-x: -2deg; --photo-rest-y: 6deg; --photo-rest-z: 5deg; }
 .stage-photo:nth-child(3) { --photo-rest-x: 2deg; --photo-rest-y: -4deg; --photo-rest-z: -3deg; }

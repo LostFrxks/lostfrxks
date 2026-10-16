@@ -99,7 +99,7 @@ test('one held mouse drag switches photos repeatedly and reverses before release
   await page.mouse.move(x, y);
   await page.mouse.down();
   await page.mouse.move(x - 40, y + 3, { steps: 4 });
-  expect((await photo.boundingBox()).x).toBeLessThan(box.x - 10);
+  await expect.poll(async () => (await photo.boundingBox()).x).toBeLessThan(box.x - 10);
   await expect(status).toContainText('01 / 03');
   await page.mouse.move(x - 200, y + 3, { steps: 8 });
   await expect(status).toContainText('02 / 03');
@@ -132,8 +132,12 @@ test('crossing a photo boundary keeps the held cards moving smoothly', async ({ 
   await page.mouse.move(x - 149, y, { steps: 10 });
   await page.waitForTimeout(250);
   const before = await photo.boundingBox();
+  const overlap = { x: before.x + before.width * .75, y: before.y + before.height * .5 };
+  const topCard = () => stage.evaluate((el, point) => [...el.querySelectorAll('[data-photo-slide]')].indexOf(document.elementFromPoint(point.x, point.y)?.closest('[data-photo-slide]')), overlap);
+  expect(await topCard()).toBe(0);
   await page.mouse.move(x - 151, y);
   const after = await photo.boundingBox();
+  expect(await topCard()).toBe(0);
   await expect(page.locator('[data-photo-status]')).toContainText('02 / 03');
   expect(Math.abs(after.x - before.x)).toBeLessThan(40);
   await page.mouse.up();

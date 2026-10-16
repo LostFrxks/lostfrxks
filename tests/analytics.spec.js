@@ -85,7 +85,7 @@ test('tracker excludes hidden time and hidden interval traffic', async ({ page }
 test('analytics failures never break the public portfolio', async ({ page }) => {
   await page.route(SESSION_ENDPOINT, (route) => route.fulfill({ status: 503, body: '' }));
   await page.goto('/');
-  await expect(page).toHaveTitle('Artur Usenov — Backend / AI Backend Engineer');
+  await expect(page).toHaveTitle('Artur Usenov');
   await expect(page.getByRole('button', { name: /enter matrix intro/i })).toBeVisible();
 });
 

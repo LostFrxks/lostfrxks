@@ -55,7 +55,7 @@ test('head publishes canonical identity metadata without changing visible positi
   const description =
     'Artur Usenov — Артур Усенов (Усенов Артур), Backend / AI Backend Engineer from Bishkek building marketplace microservices, Kubernetes platforms, Qdrant search and LLM pipelines.';
 
-  await expect(page).toHaveTitle('Artur Usenov — Backend / AI Backend Engineer');
+  await expect(page).toHaveTitle('Artur Usenov');
   await expect(page.locator('h1#hero-title')).toHaveText('Artur Usenov');
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://lostfrxks.com/');
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', description);

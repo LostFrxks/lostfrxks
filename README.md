@@ -98,13 +98,21 @@ npm test
 
 ## deployment
 
-The repository includes a `CNAME` file for:
+The Netlify project is `lostfrxks-portfolio` in team `lostfrxks-ag-qqbi`.
+Link the local CLI to this existing project before deploying:
 
 ```txt
-lostfrxks.com
+netlify link --id 90b5171c-428e-481b-9ef7-f9cf68e4d55e
 ```
 
-The site can be served from any static host. If GitHub Pages is used, the custom domain should stay `lostfrxks.com` so the domain remains the primary public address.
+`npm run deploy:preview` builds the public files into `dist` and creates a preview.
+After reviewing it, `npm run deploy:production` publishes the release. Combine small changes
+into one production release to avoid spending deployment credits on every commit.
+
+The build copies only the declared browser files and public assets. Source code for server
+functions, tests, local configuration and credentials are excluded from `dist`. Functions
+are bundled from `netlify/functions` during deployment so their API v2 routes and runtime
+settings are preserved. The intended custom domain remains `lostfrxks.com`.
 
 ## private analytics
 

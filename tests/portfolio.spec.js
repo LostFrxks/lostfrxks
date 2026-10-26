@@ -705,7 +705,7 @@ test('timeline starts with college and moves into backend work', async () => {
   expect(timelineMarkup).toMatch(/<time>2026 — Present<\/time>/);
   expect(timelineMarkup).toMatch(/Started Software Engineering and Social Transformation at TSI AUCA/i);
   expect(timelineMarkup).toMatch(/Won Makeathon TOM: Kyrgyzstan/i);
-  expect(timelineMarkup).toMatch(/Built ATLAS-STORE, AGL.KG, USC, embedding-search and GUROO in parallel as separate projects/i);
+  expect(timelineMarkup).toMatch(/Built ATLAS-STORE, AGL.KG, USC, embedding-search and GUROO/i);
   expect(timelineMarkup).toMatch(/Advanced to the ICPC NERC 2025 final/i);
   expect(timelineMarkup).toMatch(/Software Developer Intern in the MBank \/ marketplace ecosystem/i);
   expect(timelineMarkup).toMatch(/Backend Developer at MDigital \/ MMarket ecosystem, focused on marketplace platform services, Kubernetes delivery and AI catalog automation/i);

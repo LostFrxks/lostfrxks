@@ -702,10 +702,11 @@ test('timeline starts with college and moves into backend work', async () => {
   expect(timelineMarkup).toMatch(/<time>2024<\/time>/);
   expect(timelineMarkup).toMatch(/<time>2025<\/time>/);
   expect(timelineMarkup).toMatch(/<time>Winter 2025–2026<\/time>/);
-  expect(timelineMarkup).toMatch(/<time>2026<\/time>/);
+  expect(timelineMarkup).toMatch(/<time>2026 — Present<\/time>/);
   expect(timelineMarkup).toMatch(/Started Software Engineering and Social Transformation at TSI AUCA/i);
-  expect(timelineMarkup).toMatch(/Built GUROO for AUCA tutor workflows and won Makeathon TOM: Kyrgyzstan/i);
-  expect(timelineMarkup).toMatch(/Advanced to ICPC NERC 2025 final, built USC marketplace MVP, created embedding-search, and shipped ATLAS-STORE live e-commerce/i);
+  expect(timelineMarkup).toMatch(/Won Makeathon TOM: Kyrgyzstan/i);
+  expect(timelineMarkup).toMatch(/Built ATLAS-STORE, AGL.KG, USC, embedding-search and GUROO in parallel as separate projects/i);
+  expect(timelineMarkup).toMatch(/Advanced to the ICPC NERC 2025 final/i);
   expect(timelineMarkup).toMatch(/Software Developer Intern in the MBank \/ marketplace ecosystem/i);
   expect(timelineMarkup).toMatch(/Backend Developer at MDigital \/ MMarket ecosystem, focused on marketplace platform services, Kubernetes delivery and AI catalog automation/i);
   expect(timelineMarkup).not.toMatch(/<time>2022<\/time>/);
@@ -735,7 +736,7 @@ test('featured projects and achievements are visible', async ({ page }) => {
   const timeline = page.locator('.timeline');
 
   await expect(page.getByRole('heading', { name: /Selected Work/i })).toBeVisible();
-  await expect(page.getByText(/Production, marketplace and AI\/search systems/i)).toBeVisible();
+  await expect(page.locator('#projects .section-subtitle')).toHaveText('Currently a Backend Developer at MDigital. The other projects below were developed in parallel during 2025.');
   await expect(page.getByRole('heading', { name: /Marketplace Platform Runtime Split/i })).toBeVisible();
   await expect(projectGrid.getByRole('heading', { name: /AI Catalog Automation/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /ATLAS-STORE/i })).toBeVisible();
@@ -885,7 +886,7 @@ test('experience and contact target remote backend roles', async ({ page }) => {
   await expect(page.getByText(/experience --production/i)).toBeVisible();
   await expect(page.getByRole('heading', { name: /^Backend Developer$/i })).toBeVisible();
   await expect(page.getByText(/^MDigital \/ MMarket ecosystem$/i)).toBeVisible();
-  await expect(page.getByText(/2026 — Present/i)).toBeVisible();
+  await expect(experience.getByText(/2026 — Present/i)).toBeVisible();
   await expect(page.getByText(/Marketplace Platform & AI Automation/i)).toBeVisible();
   await expect(page.getByText(/Working on marketplace services across backend, platform delivery and AI-powered catalog automation/i)).toBeVisible();
   await expect(page.getByText(/Go microservices, Kafka\/outbox workers, PostgreSQL, Kubernetes deployments/i)).toBeVisible();

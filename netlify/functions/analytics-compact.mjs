@@ -1,8 +1,10 @@
+import { createAdminAuth } from '../lib/analytics-auth.mjs';
 import { createAnalyticsRepository } from '../lib/analytics-repository.mjs';
 
 export function createCompactHandler(dependencies = {}) {
   const repositoryFactory = dependencies.repositoryFactory
     ?? createAnalyticsRepository;
+  const auth = dependencies.auth ?? createAdminAuth();
   const clock = dependencies.now ?? (() => new Date());
   const logger = dependencies.logger ?? console;
   let repository = dependencies.repository;
@@ -16,6 +18,7 @@ export function createCompactHandler(dependencies = {}) {
 
   return async function analyticsCompact() {
     const result = await resolveRepository().compact(clock());
+    await auth.removeExpired();
     const compactedDays = Number.isFinite(result?.compactedDays)
       ? result.compactedDays
       : 0;

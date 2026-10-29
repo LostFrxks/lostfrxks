@@ -139,9 +139,9 @@ Detailed visits are retained indefinitely as independent ETag-protected blobs. H
 
 After successful password authentication, the dashboard registers that browser as the owner. All its detailed visits, including those collected before login, remain in history with an amber **Ты** badge but are excluded from counts and average duration. Other browsers sharing its IP are unaffected. Clearing browser storage or using another browser requires a new admin login. Historic anonymous visits cannot be identified retrospectively.
 
-The history is newest-first in Bishkek time with expandable cards and 50 visits per page. Every history read, pagination request and owner registration verifies the password on the server. Locking clears rendered private data. Netlify may retain ordinary infrastructure logs independently of this dataset.
+The history is newest-first in Bishkek time with expandable cards and 50 visits per page. Every history read, pagination request and owner registration verifies an opaque server session. Login alone sends the password over HTTPS; the dashboard immediately clears the input and never saves it to browser storage. The cookie (`__Host-lostfrxks_admin`) is HttpOnly, Secure, SameSite=Strict, and expires after 8 hours. Only its SHA-256 digest is stored in the separate `private-analytics-sessions` Blobs store. Lock revokes that session on the server and clears rendered private data. Password or session-secret rotation invalidates existing sessions; the daily compactor removes expired session records. Netlify may retain ordinary infrastructure logs independently of this dataset.
 
-`/secret.html` is intentionally unlinked. Its data API requires the `ANALYTICS_ADMIN_PASSWORD` Netlify environment variable. Use a strong password and keep it outside the repository.
+`/secret.html` is intentionally unlinked. Its data API requires the `ANALYTICS_ADMIN_PASSWORD` and `ANALYTICS_SESSION_SECRET` Netlify environment variables. Generate the session secret from at least 32 random bytes; keep both values server-side. Use a strong password and keep it outside the repository.
 
 Copy it to **Netlify → Project configuration → Environment variables → `ANALYTICS_ADMIN_PASSWORD`**. Never commit it or place it in a tracked `.env` file.
 
@@ -154,7 +154,7 @@ npm run start
 For Functions and local Netlify Blobs, open `http://localhost:8888` after running:
 
 ```bash
-ANALYTICS_ADMIN_PASSWORD=local-development-password npm run dev
+ANALYTICS_ADMIN_PASSWORD=local-development-password ANALYTICS_SESSION_SECRET=local-development-secret-at-least-32-characters npm run dev
 ```
 
 Netlify Free has finite monthly allowances. Check project usage after deployment if traffic grows.

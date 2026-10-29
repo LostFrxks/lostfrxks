@@ -1,6 +1,6 @@
+import {createAdminAuth} from '../lib/analytics-auth.mjs';
 import {
   buildStats,
-  tokensEqual,
 } from '../lib/analytics-core.mjs';
 import { createCombinedAnalyticsRepository } from '../lib/analytics-visits.mjs';
 
@@ -24,21 +24,13 @@ function jsonResponse(status, value) {
   });
 }
 
-function bearerToken(value) {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  return /^Bearer ([^\s]+)$/.exec(value)?.[1] ?? null;
-}
-
 export function createStatsHandler(dependencies = {}) {
   const repositoryFactory = dependencies.repositoryFactory
     ?? createCombinedAnalyticsRepository;
   const clock = dependencies.now ?? (() => new Date());
   const logger = dependencies.logger ?? console;
   const statsBuilder = dependencies.buildStats ?? buildStats;
-  const hasInjectedToken = Object.hasOwn(dependencies, 'adminToken');
-  const hasInjectedEnvironment = Object.hasOwn(dependencies, 'env');
+  const auth = dependencies.auth ?? createAdminAuth();
   let repository = dependencies.repository;
 
   const resolveRepository = () => {
@@ -47,14 +39,6 @@ export function createStatsHandler(dependencies = {}) {
     }
     return repository;
   };
-  const resolveAdminToken = () => {
-    if (hasInjectedToken) {
-      return dependencies.adminToken;
-    }
-    const environment = hasInjectedEnvironment ? dependencies.env : process.env;
-    return environment?.ANALYTICS_ADMIN_PASSWORD;
-  };
-
   return async function analyticsStats(request) {
     if (request.method !== 'GET') {
       return emptyResponse(405, {
@@ -63,21 +47,13 @@ export function createStatsHandler(dependencies = {}) {
       });
     }
 
-    const adminToken = resolveAdminToken();
-    if (typeof adminToken !== 'string' || adminToken.length === 0) {
-      return jsonResponse(503, { error: 'Analytics stats unavailable' });
-    }
-
-    const providedToken = bearerToken(request.headers.get('authorization'));
-    if (providedToken === null || !tokensEqual(providedToken, adminToken)) {
-      return jsonResponse(401, { error: 'Unauthorized' });
-    }
-
-    const offsetValue = new URL(request.url).searchParams.get('offset') ?? '0';
-    if (!/^\d{1,9}$/.test(offsetValue)) return jsonResponse(400, { error: 'Invalid history offset' });
-    const offset = Number(offsetValue);
-
     try {
+      if (!await auth.authenticate(request)) {
+        return jsonResponse(401, { error: 'Unauthorized' });
+      }
+      const offsetValue = new URL(request.url).searchParams.get('offset') ?? '0';
+      if (!/^\d{1,9}$/.test(offsetValue)) return jsonResponse(400, { error: 'Invalid history offset' });
+      const offset = Number(offsetValue);
       const dataset = await resolveRepository().readDataset();
       const stats = statsBuilder({ ...dataset, now: clock() });
       if (Array.isArray(stats.visits)) {

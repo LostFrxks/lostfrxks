@@ -1,3 +1,5 @@
+import {signedIn,authFixture} from './helpers/admin-auth.mjs';
+import {SESSION_SECONDS} from '../netlify/lib/analytics-auth.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -286,194 +288,50 @@ test('session sanitizes storage and unexpected failures without leaking payloads
   }
 });
 
-test('stats rejects non-GET methods before resolving configuration or repository', async () => {
-  let reads = 0;
-  const handler = createStatsHandler({
-    env: {},
-    repository: { readDataset: () => { reads += 1; } },
-  });
-  const response = await handler(statsRequest({ method: 'POST' }));
-
-  assert.equal(response.status, 405);
-  assert.equal(response.headers.get('allow'), 'GET');
-  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
-  await assertNoStore(response);
-  assert.equal(reads, 0);
+test('stats rejects non-GET methods before resolving authentication or repository', async () => {
+  let reads=0;
+  const handler=createStatsHandler({auth:{authenticate(){throw Error('must not run')}},repository:{readDataset(){reads++}}});
+  const response=await handler(statsRequest({method:'POST'}));
+  assert.equal(response.status,405);assert.equal(response.headers.get('allow'),'GET');await assertNoStore(response);assert.equal(reads,0);
 });
 
-test('stats fails closed when the admin token is missing or empty', async () => {
-  let reads = 0;
-  const repository = { readDataset: () => { reads += 1; } };
+test('stats fails closed when server authentication is unavailable', async () => {
+  const logger=recordingLogger();let reads=0;
+  const handler=createStatsHandler({auth:{authenticate(){throw Error('private-secret')}},logger,repository:{readDataset(){reads++}}});
+  const response=await handler(statsRequest());assert.equal(response.status,503);assert.equal(reads,0);await assertNoStore(response);
+  assert.deepEqual(await response.json(),{error:'Analytics stats unavailable'});assert.deepEqual(logger.calls,[['error','analytics stats unavailable']]);
+});
 
-  for (const deps of [
-    { env: {}, repository },
-    { adminToken: '', env: { ANALYTICS_ADMIN_PASSWORD: 'fallback' }, repository },
-  ]) {
-    const response = await createStatsHandler(deps)(statsRequest({
-      authorization: 'Bearer anything',
-    }));
-    assert.equal(response.status, 503);
-    await assertNoStore(response);
-    assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
-    assert.deepEqual(await response.json(), { error: 'Analytics stats unavailable' });
+test('stats rejects old password bearer headers and missing, forged or expired session cookies without reading data', async () => {
+  let time=NOW;const f=await signedIn(authFixture({now:()=>time}));let reads=0;
+  const handler=createStatsHandler({auth:f.auth,repository:{readDataset(){reads++}}});
+  for(const headers of [{},{authorization:'Bearer correct-token'},{cookie:'__Host-lostfrxks_admin=forged'}]){
+    const response=await handler(new Request(STATS_URL,{headers}));assert.equal(response.status,401);await assertNoStore(response);
   }
-  assert.equal(reads, 0);
+  time=new Date(time.getTime()+SESSION_SECONDS*1000);
+  assert.equal((await handler(new Request(STATS_URL,{headers:{cookie:f.cookie}}))).status,401);assert.equal(reads,0);
 });
 
-test('stats accepts only an exact Bearer token form and denies wrong tokens', async () => {
-  let reads = 0;
-  const handler = createStatsHandler({
-    adminToken: 'correct-token',
-    repository: { readDataset: () => { reads += 1; } },
-  });
-  const invalid = [
-    undefined,
-    '',
-    'Bearer',
-    'bearer correct-token',
-    'Basic correct-token',
-    'Bearer  correct-token',
-    'Bearer correct token',
-    'Bearer wrong-token',
-    'Bearer correct-token extra',
-  ];
-
-  for (const authorization of invalid) {
-    const response = await handler(statsRequest({ authorization }));
-    assert.equal(response.status, 401);
-    await assertNoStore(response);
-    assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
-    assert.deepEqual(await response.json(), { error: 'Unauthorized' });
-  }
-  assert.equal(reads, 0);
+test('stats reads only after a valid session and returns the original metrics and history', async () => {
+  const f=await signedIn(authFixture({now:()=>NOW}));let reads=0;
+  const dataset={daily:[{date:'2026-07-16',visits:2,totalActiveSeconds:60}],visitTimes:['2026-07-16T20:00:00.000Z','2026-07-17T02:00:00.000Z'],sessions:[{startedAt:'2026-07-17T01:23:45.000Z',lastSeenAt:'2026-07-17T01:24:45.000Z',activeSeconds:30}]};
+  const handler=createStatsHandler({auth:f.auth,now:()=>NOW,repository:{readDataset(){reads++;return dataset}}});
+  const response=await handler(new Request(STATS_URL,{headers:{cookie:f.cookie}}));assert.equal(response.status,200);await assertNoStore(response);
+  const body=await response.json();assert.equal(body.periods.allTime.visits,3);assert.equal(body.periods.allTime.averageActiveSeconds,30);assert.deepEqual(body.visitTimes,[...dataset.visitTimes].reverse());assert.equal(body.timezone,'Asia/Bishkek');assert.equal(reads,1);
 });
 
-test('stats reads only after authorization and returns anonymous visit history', async () => {
-  let reads = 0;
-  const privateStartedAt = '2026-07-17T01:23:45.000Z';
-  const dataset = {
-    daily: [{ date: '2026-07-16', visits: 2, totalActiveSeconds: 60 }],
-    visitTimes: [
-      '2026-07-16T20:00:00.000Z',
-      '2026-07-17T02:00:00.000Z',
-    ],
-    sessions: [{
-      startedAt: privateStartedAt,
-      lastSeenAt: '2026-07-17T01:24:45.000Z',
-      activeSeconds: 30,
-    }],
-  };
-  const handler = createStatsHandler({
-    adminToken: 'correct-token',
-    now: () => NOW,
-    repository: {
-      readDataset: () => {
-        reads += 1;
-        return dataset;
-      },
-    },
-  });
-  const response = await handler(statsRequest({
-    authorization: 'Bearer correct-token',
-  }));
-  const body = await response.text();
-
-  assert.equal(response.status, 200);
-  await assertNoStore(response);
-  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
-  assert.deepEqual(JSON.parse(body), {
-    generatedAt: NOW.toISOString(),
-    timezone: 'Asia/Bishkek',
-    visitTimes: [
-      '2026-07-17T02:00:00.000Z',
-      '2026-07-16T20:00:00.000Z',
-    ],
-    periods: {
-      today: { visits: 1, averageActiveSeconds: 30 },
-      sevenDays: { visits: 3, averageActiveSeconds: 30 },
-      thirtyDays: { visits: 3, averageActiveSeconds: 30 },
-      allTime: { visits: 3, averageActiveSeconds: 30 },
-    },
-  });
-  assert.equal(reads, 1);
-  assert.equal(body.includes(SESSION_ID), false);
-  assert.equal(body.includes(privateStartedAt), false);
-  assert.equal(body.includes('startedAt'), false);
-  assert.equal(body.includes('lastSeenAt'), false);
-  assert.equal(body.includes('activeSeconds'), false);
+test('stats returns zero aggregates for an empty dataset under a valid session', async () => {
+  const f=await signedIn(authFixture({now:()=>NOW}));
+  const handler=createStatsHandler({auth:f.auth,now:()=>NOW,repository:{readDataset:()=>({daily:[],sessions:[]})}});
+  const response=await handler(new Request(STATS_URL,{headers:{cookie:f.cookie}}));assert.equal(response.status,200);
+  const body=await response.json();for(const period of Object.values(body.periods))assert.deepEqual(period,{visits:0,averageActiveSeconds:0});assert.deepEqual(body.visitTimes,[]);
 });
 
-test('stats returns zero aggregates for an empty dataset', async () => {
-  const handler = createStatsHandler({
-    adminToken: 'correct-token',
-    now: () => NOW,
-    repository: { readDataset: () => ({ daily: [], sessions: [] }) },
-  });
-  const response = await handler(statsRequest({
-    authorization: 'Bearer correct-token',
-  }));
-  const body = await response.json();
-
-  assert.equal(response.status, 200);
-  await assertNoStore(response);
-  for (const period of Object.values(body.periods)) {
-    assert.deepEqual(period, { visits: 0, averageActiveSeconds: 0 });
-  }
-  assert.deepEqual(body.visitTimes, []);
-});
-
-test('stats uses the environment token at invocation time', async () => {
-  const env = {};
-  let reads = 0;
-  const handler = createStatsHandler({
-    env,
-    now: () => NOW,
-    repository: {
-      readDataset: () => {
-        reads += 1;
-        return { daily: [], sessions: [] };
-      },
-    },
-  });
-  env.ANALYTICS_ADMIN_PASSWORD = 'late-token';
-
-  const response = await handler(statsRequest({ authorization: 'Bearer late-token' }));
-  assert.equal(response.status, 200);
-  assert.equal(reads, 1);
-});
-
-test('stats sanitizes repository and aggregation failures', async () => {
-  const sensitive = `${SESSION_ID} stored-secret`;
-  const cases = [
-    {
-      repository: { readDataset: () => { throw new AnalyticsStorageError(sensitive); } },
-    },
-    {
-      buildStats: () => { throw new Error(sensitive); },
-      repository: { readDataset: () => ({ daily: [], sessions: [] }) },
-    },
-  ];
-
-  for (const dependencies of cases) {
-    const logger = recordingLogger();
-    const handler = createStatsHandler({
-      ...dependencies,
-      adminToken: 'correct-token',
-      logger,
-      now: () => NOW,
-    });
-    const response = await handler(statsRequest({
-      authorization: 'Bearer correct-token',
-    }));
-    const observable = `${await response.text()} ${JSON.stringify(logger.calls)}`;
-
-    assert.equal(response.status, 503);
-    await assertNoStore(response);
-    assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
-    assert.deepEqual(logger.calls, [['error', 'analytics stats unavailable']]);
-    assert.equal(observable.includes(SESSION_ID), false);
-    assert.equal(observable.includes('stored-secret'), false);
-    assert.equal(observable.includes(sensitive), false);
+test('stats sanitizes repository and aggregation failures after session authorization', async () => {
+  const f=await signedIn(authFixture({now:()=>NOW}));
+  for(const deps of [{repository:{readDataset(){throw new AnalyticsStorageError('stored-secret')}}},{repository:{readDataset:()=>({daily:[],sessions:[]})},buildStats(){throw Error('stored-secret')}}]){
+    const logger=recordingLogger();const handler=createStatsHandler({...deps,auth:f.auth,now:()=>NOW,logger});
+    const response=await handler(new Request(STATS_URL,{headers:{cookie:f.cookie}}));assert.equal(response.status,503);await assertNoStore(response);assert(!(await response.text()).includes('stored-secret'));assert.deepEqual(logger.calls,[['error','analytics stats unavailable']]);
   }
 });
 
@@ -486,6 +344,7 @@ test('compact passes the exact server Date and logs only fixed numeric results',
     sessions: [SESSION_ID],
   };
   const handler = createCompactHandler({
+    auth: {removeExpired: async () => 0},
     logger,
     now: () => NOW,
     repository: {
@@ -513,10 +372,21 @@ test('compact propagates storage failures without logging fabricated success', a
   const logger = recordingLogger();
   const error = new AnalyticsStorageError('stored-secret');
   const handler = createCompactHandler({
+    auth: {removeExpired: async () => 0},
     logger,
     repository: { compact: () => { throw error; } },
   });
 
   await assert.rejects(handler(), (caught) => caught === error);
   assert.deepEqual(logger.calls, []);
+});
+
+
+test('daily compaction also removes expired authentication records and propagates cleanup failures', async () => {
+  let cleanups = 0;
+  const handler = createCompactHandler({repository: {compact: async () => ({})}, auth: {removeExpired: async () => {cleanups++;}}, logger: recordingLogger()});
+  await handler();
+  assert.equal(cleanups, 1);
+  const failed = createCompactHandler({repository: {compact: async () => ({})}, auth: {removeExpired: async () => {throw Error('store unavailable');}}, logger: recordingLogger()});
+  await assert.rejects(failed(), /store unavailable/);
 });

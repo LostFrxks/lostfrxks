@@ -1,3 +1,4 @@
+import {signedIn,authFixture} from './helpers/admin-auth.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createSessionHandler } from '../netlify/functions/analytics-session.mjs';
@@ -35,10 +36,11 @@ test('rich collection rejects forged owner and network fields before writing', a
   assert.equal(writes, 0);
 });
 
-test('owner registration requires password and same-origin POST before any storage access', async () => {
+test('owner registration requires a session and same-origin POST before any storage access', async () => {
+  const f = await signedIn();
   const { createOwnerHandler } = await import('../netlify/functions/analytics-owner.mjs');
   let writes = 0;
-  const handler = createOwnerHandler({ adminToken: 'test-password', repository: { markOwner: () => { writes++; } } });
+  const handler = createOwnerHandler({ auth: f.auth, repository: { markOwner: () => { writes++; } } });
   for (const authorization of [undefined, 'Bearer wrong', 'Basic test-password']) {
     const response = await handler(post('/api/analytics/owner', { browserId: BROWSER }, authorization ? { authorization } : {}));
     assert.equal(response.status, 401);
@@ -51,40 +53,43 @@ test('owner registration requires password and same-origin POST before any stora
 
 test('correct password registers only the supplied browser and malformed registrations fail', async () => {
   const { createOwnerHandler } = await import('../netlify/functions/analytics-owner.mjs');
+  const f = await signedIn();
   const registrations = [];
-  const handler = createOwnerHandler({ adminToken: 'test-password', repository: { markOwner: (...args) => registrations.push(args) }, now: () => NOW });
-  const response = await handler(post('/api/analytics/owner', { browserId: BROWSER }, { authorization: 'Bearer test-password' }));
+  const handler = createOwnerHandler({ auth: f.auth, repository: { markOwner: (...args) => registrations.push(args) }, now: () => NOW });
+  const response = await handler(post('/api/analytics/owner', { browserId: BROWSER }, { cookie: f.cookie }));
   assert.equal(response.status, 204);
   assert.deepEqual(registrations, [[BROWSER, NOW]]);
   for (const body of [{ browserId: 'bad' }, { browserId: BROWSER, ip: '192.0.2.1' }, {}]) {
-    assert.equal((await handler(post('/api/analytics/owner', body, { authorization: 'Bearer test-password' }))).status, 400);
+    assert.equal((await handler(post('/api/analytics/owner', body, { cookie: f.cookie }))).status, 400);
   }
   assert.equal(registrations.length, 1);
 });
 
 test('owner registration fails closed when password is unconfigured and sanitizes storage errors', async () => {
   const { createOwnerHandler } = await import('../netlify/functions/analytics-owner.mjs');
+  const f = await signedIn();
   let writes = 0;
-  const missing = createOwnerHandler({ adminToken: '', repository: { markOwner: () => { writes++; } } });
+  const missing = createOwnerHandler({ auth: { authenticate() { throw Error('unconfigured'); } }, repository: { markOwner: () => { writes++; } } });
   assert.equal((await missing(post('/api/analytics/owner', { browserId: BROWSER }))).status, 503);
   assert.equal(writes, 0);
-  const failing = createOwnerHandler({ adminToken: 'test-password', repository: { markOwner: () => { throw Error('private-IP'); } }, logger: { error() {} } });
-  const response = await failing(post('/api/analytics/owner', { browserId: BROWSER }, { authorization: 'Bearer test-password' }));
+  const failing = createOwnerHandler({ auth: f.auth, repository: { markOwner: () => { throw Error('private-IP'); } }, logger: { error() {} } });
+  const response = await failing(post('/api/analytics/owner', { browserId: BROWSER }, { cookie: f.cookie }));
   assert.equal(response.status, 503);
   assert.equal((await response.text()).includes('private-IP'), false);
 });
 
 test('authenticated history paginates while all-time visitor counts exclude owners', async () => {
+  const f = await signedIn();
   const visits = Array.from({ length: 55 }, (_, index) => ({ id: 'visit-' + index, startedAt: new Date(NOW.getTime() - index * 1000).toISOString(), activeSeconds: 10, isOwner: index === 0, legacy: false }));
-  const handler = createStatsHandler({ adminToken: 'test-password', repository: { readDataset: () => ({ daily: [], sessions: [], visitTimes: [], visits }) }, now: () => NOW });
-  const first = await handler(new Request(ORIGIN + '/api/analytics/stats', { headers: { authorization: 'Bearer test-password' } }));
+  const handler = createStatsHandler({ auth: f.auth, repository: { readDataset: () => ({ daily: [], sessions: [], visitTimes: [], visits }) }, now: () => NOW });
+  const first = await handler(new Request(ORIGIN + '/api/analytics/stats', { headers: { cookie: f.cookie } }));
   const data = await first.json();
   assert.equal(first.status, 200);
   assert.equal(data.visits.length, 50);
   assert.equal(data.visits[0].isOwner, true);
   assert.equal(data.periods.allTime.visits, 54);
   assert.deepEqual(data.history, { offset: 0, nextOffset: 50, total: 55 });
-  const next = await handler(new Request(ORIGIN + '/api/analytics/stats?offset=50', { headers: { authorization: 'Bearer test-password' } }));
+  const next = await handler(new Request(ORIGIN + '/api/analytics/stats?offset=50', { headers: { cookie: f.cookie } }));
   const last = await next.json();
   assert.equal(last.visits.length, 5);
   assert.equal(last.history.nextOffset, null);
@@ -92,11 +97,12 @@ test('authenticated history paginates while all-time visitor counts exclude owne
 });
 
 test('pagination cannot bypass authentication or trigger reads for invalid offsets', async () => {
+  const f = await signedIn();
   let reads = 0;
-  const handler = createStatsHandler({ adminToken: 'test-password', repository: { readDataset: () => { reads++; return {}; } } });
+  const handler = createStatsHandler({ auth: f.auth, repository: { readDataset: () => { reads++; return {}; } } });
   assert.equal((await handler(new Request(ORIGIN + '/api/analytics/stats?offset=50'))).status, 401);
   for (const offset of ['-1', 'NaN', '1.5', '999999999999999999999']) {
-    assert.equal((await handler(new Request(ORIGIN + '/api/analytics/stats?offset=' + offset, { headers: { authorization: 'Bearer test-password' } }))).status, 400);
+    assert.equal((await handler(new Request(ORIGIN + '/api/analytics/stats?offset=' + offset, { headers: { cookie: f.cookie } }))).status, 400);
   }
   assert.equal(reads, 0);
 });

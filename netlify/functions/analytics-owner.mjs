@@ -1,20 +1,23 @@
-import { AnalyticsInputError, tokensEqual } from '../lib/analytics-core.mjs';
+import {createAdminAuth,sameOrigin} from '../lib/analytics-auth.mjs';
+import { AnalyticsInputError } from '../lib/analytics-core.mjs';
 import { createVisitRepository, validateBrowserId } from '../lib/analytics-visits.mjs';
 
 function response(status) { return new Response(null, { status, headers: { 'cache-control': 'no-store' } }); }
 
 export function createOwnerHandler(dependencies = {}) {
   let repository = dependencies.repository;
+  const auth = dependencies.auth ?? createAdminAuth();
   const clock = dependencies.now ?? (() => new Date());
   const logger = dependencies.logger ?? console;
   return async function analyticsOwner(request) {
     if (request.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST', 'cache-control': 'no-store' } });
-    const environment = Object.hasOwn(dependencies, 'env') ? dependencies.env : process.env;
-    const password = Object.hasOwn(dependencies, 'adminToken') ? dependencies.adminToken : environment?.ANALYTICS_ADMIN_PASSWORD;
-    if (typeof password !== 'string' || !password) return response(503);
-    const token = /^Bearer ([^\s]+)$/.exec(request.headers.get('authorization') ?? '')?.[1];
-    if (!tokensEqual(token, password)) return response(401);
-    if (request.headers.get('origin') !== new URL(request.url).origin) return response(403);
+    if (!sameOrigin(request, {required: true})) return response(403);
+    try {
+      if (!await auth.authenticate(request)) return response(401);
+    } catch {
+      logger.error('analytics owner registration unavailable');
+      return response(503);
+    }
     if (request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json') return response(415);
     const declaredLength = request.headers.get('content-length');
     if (declaredLength && /^\d+$/.test(declaredLength) && BigInt(declaredLength) > 256n) return response(413);

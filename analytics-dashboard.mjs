@@ -100,22 +100,37 @@ export function renderStats(root, stats, { append = false } = {}) {
   if (total) total.textContent = stats.history ? 'Всего в истории: ' + stats.history.total + ' · твои заходы помечены «Ты»' : '';
 }
 
-export function initializeDashboard({ root = document, browserFetch = fetch, storage = sessionStorage, browserWindow = window } = {}) {
+export function initializeDashboard({ root = document, browserFetch = fetch, storage, browserWindow = window } = {}) {
   const loginForm = root.querySelector('[data-login-form]');
   const passwordInput = root.querySelector('#access-password');
+  const submit = loginForm.querySelector('[type="submit"]');
   const error = root.querySelector('[data-error]');
   const privateContent = root.querySelector('[data-private-content]');
   const dashboard = root.querySelector('[data-dashboard]');
   const refresh = root.querySelector('[data-refresh]');
   const lock = root.querySelector('[data-lock]');
   const more = root.querySelector('[data-load-more]');
+  // Remove passwords left by the previous dashboard without reading or reusing them.
+  for (const getStorage of [() => storage ?? browserWindow.sessionStorage, () => browserWindow.localStorage]) {
+    try { getStorage()?.removeItem(PASSWORD_KEY); } catch {}
+  }
   let requestEpoch = 0;
-  let registeredPassword = null;
+  let busy = false;
+  let registered = false;
   let nextOffset = null;
+  let expirationTimer;
   const clearError = () => { error.textContent = ''; error.hidden = true; };
   const showError = message => { error.textContent = message; error.hidden = false; };
+  const controls = value => {
+    busy = value;
+    passwordInput.disabled = value; submit.disabled = value;
+    refresh.disabled = value; if (more) more.disabled = value;
+  };
   const showLocked = () => {
     requestEpoch++;
+    clearTimeout(expirationTimer);
+    registered = false;
+    passwordInput.value = '';
     privateContent.hidden = true; dashboard.hidden = true; loginForm.hidden = false;
     root.querySelector('[data-visit-history]').replaceChildren();
     for (const element of root.querySelectorAll('[data-visits], [data-average]')) element.textContent = '—';
@@ -123,51 +138,77 @@ export function initializeDashboard({ root = document, browserFetch = fetch, sto
     nextOffset = null;
     if (root.title !== undefined) root.title = 'Access';
   };
-  const currentPassword = () => { try { return storage.getItem(PASSWORD_KEY) || passwordInput.value.trim(); } catch { return passwordInput.value.trim(); } };
-  const load = async (password, offset = 0) => {
+  const request = async (path, options = {}) => {
+    const response = await browserFetch('/api/analytics/' + path, {
+      ...options, cache: 'no-store', credentials: 'same-origin', referrerPolicy: 'no-referrer',
+    });
+    if (response.status === 401) { const denied = new Error('Denied'); denied.denied = true; throw denied; }
+    if (!response.ok) throw new Error('Unavailable');
+    return response;
+  };
+  const load = async (epoch, offset = 0) => {
+    if (!registered) {
+      const browserId = getBrowserId(browserWindow);
+      if (!browserId) throw new Error('Unavailable');
+      await request('owner', { method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({browserId}) });
+      if (epoch !== requestEpoch) return;
+      registered = true;
+    }
+    const response = await request('stats' + (offset ? '?offset=' + offset : ''), {headers: {accept: 'application/json'}});
+    const stats = await response.json();
+    if (epoch !== requestEpoch) return;
+    renderStats(dashboard, stats, {append: offset > 0});
+    nextOffset = stats.history?.nextOffset ?? null;
+    loginForm.hidden = true; privateContent.hidden = false; dashboard.hidden = false;
+    if (root.title !== undefined) root.title = 'Private Analytics — lostfrxks';
+  };
+  const operation = async action => {
+    if (busy) return;
     const epoch = ++requestEpoch;
-    clearError();
-    refresh.disabled = true; if (more) more.disabled = true;
-    try {
-      if (registeredPassword !== password) {
-        const browserId = getBrowserId(browserWindow);
-        if (!browserId) throw new Error('Unavailable');
-        const marked = await browserFetch('/api/analytics/owner', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + password }, body: JSON.stringify({ browserId }), cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' });
-        if (marked.status === 401) { const denied = new Error('Denied'); denied.denied = true; throw denied; }
-        if (!marked.ok) throw new Error('Unavailable');
-        if (epoch !== requestEpoch) return;
-        registeredPassword = password;
-      }
-      const response = await browserFetch('/api/analytics/stats' + (offset ? '?offset=' + offset : ''), { method: 'GET', headers: { accept: 'application/json', authorization: 'Bearer ' + password }, cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' });
+    controls(true); clearError();
+    try { await action(epoch); }
+    catch (err) {
       if (epoch !== requestEpoch) return;
-      if (response.status === 401) { const denied = new Error('Denied'); denied.denied = true; throw denied; }
-      if (!response.ok) throw new Error('Unavailable');
-      const stats = await response.json();
-      if (epoch !== requestEpoch) return;
-      renderStats(dashboard, stats, { append: offset > 0 });
-      nextOffset = stats.history?.nextOffset ?? null;
-      loginForm.hidden = true; privateContent.hidden = false; dashboard.hidden = false;
-      if (root.title !== undefined) root.title = 'Private Analytics — lostfrxks';
-    } catch (err) {
-      if (epoch !== requestEpoch) return;
-      if (err.denied) { try { storage.removeItem(PASSWORD_KEY); } catch {} registeredPassword = null; }
-      showLocked(); showError(err.denied ? 'Access denied.' : 'Temporarily unavailable.');
-    } finally { refresh.disabled = false; if (more) more.disabled = false; }
+      showLocked(); controls(false); showError(err.denied ? 'Access denied.' : 'Temporarily unavailable.');
+    } finally { if (epoch === requestEpoch) controls(false); }
+  };
+  const rememberExpiry = expiresAt => {
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) throw new Error('Invalid session');
+    clearTimeout(expirationTimer);
+    expirationTimer = setTimeout(() => { showLocked(); controls(false); showError('Session expired. Sign in again.'); }, Math.min(expiresAt - Date.now(), 2147483647));
   };
   loginForm.addEventListener('submit', event => {
-    event.preventDefault(); const password = passwordInput.value.trim(); if (!password) return;
-    try { storage.setItem(PASSWORD_KEY, password); } catch {}
-    void load(password);
+    event.preventDefault();
+    if (busy || !passwordInput.value) return;
+    const body = JSON.stringify({password: passwordInput.value});
+    passwordInput.value = '';
+    void operation(async epoch => {
+      const response = await request('auth', {method: 'POST', headers: {'content-type': 'application/json'}, body});
+      const session = await response.json();
+      if (epoch !== requestEpoch) return;
+      rememberExpiry(session.expiresAt);
+      registered = false;
+      await load(epoch);
+    });
   });
-  refresh.addEventListener('click', () => { const password = currentPassword(); if (password) void load(password); });
-  more?.addEventListener('click', () => { const password = currentPassword(); if (password && nextOffset !== null) void load(password, nextOffset); });
+  refresh.addEventListener('click', () => { void operation(epoch => load(epoch)); });
+  more?.addEventListener('click', () => { if (nextOffset !== null) void operation(epoch => load(epoch, nextOffset)); });
   lock.addEventListener('click', () => {
-    try { storage.removeItem(PASSWORD_KEY); } catch {}
-    passwordInput.value = ''; registeredPassword = null; clearError(); showLocked();
+    showLocked(); controls(true); lock.disabled = true; clearError();
+    const epoch = requestEpoch;
+    void request('auth', {method: 'DELETE'}).catch(() => {
+      if (epoch === requestEpoch) showError('Sign-out unavailable. Reload and try Lock again.');
+    }).finally(() => { if (epoch === requestEpoch) controls(false); lock.disabled = false; });
   });
-  let savedPassword = '';
-  try { savedPassword = storage.getItem(PASSWORD_KEY) || ''; } catch {}
-  if (savedPassword) void load(savedPassword);
+  // A page restored from browser history must recheck the server session.
+  browserWindow.addEventListener('pageshow', event => { if (event.persisted) browserWindow.location.reload(); });
+  void operation(async epoch => {
+    const response = await request('auth');
+    const session = await response.json();
+    if (epoch !== requestEpoch || !session.authenticated) return;
+    rememberExpiry(session.expiresAt);
+    await load(epoch);
+  });
 }
 
 if (typeof document !== 'undefined') { try { initializeDashboard(); } catch {} }

@@ -4,7 +4,17 @@ const SESSION_ENDPOINT = '**/api/analytics/session';
 const STATS_ENDPOINT = '**/api/analytics/stats';
 const OWNER_ENDPOINT = '**/api/analytics/owner';
 test.beforeEach(async ({ page }) => {
-  await page.route(OWNER_ENDPOINT, route => route.fulfill({ status: route.request().headers().authorization === 'Bearer correct-secret' ? 204 : 401, body: '' }));
+  let authenticated = false;
+  await page.route('**/api/analytics/auth', async route => {
+    const method = route.request().method();
+    if (method === 'DELETE') { authenticated = false; return route.fulfill({status: 204}); }
+    if (method === 'POST') {
+      authenticated = route.request().postDataJSON().password === 'correct-secret';
+      if (!authenticated) return route.fulfill({status: 401, json: {error: 'Access denied'}});
+    }
+    return route.fulfill({json: {authenticated, expiresAt: authenticated ? Date.now() + 28800000 : undefined}});
+  });
+  await page.route(OWNER_ENDPOINT, route => route.fulfill({ status: authenticated ? 204 : 401, body: '' }));
 });
 const dashboardResponse = {
   generatedAt: '2026-07-17T10:05:00.000Z',
@@ -115,7 +125,9 @@ test('private dashboard unlocks and renders metrics with newest visit times firs
     '17 Jul 2026, 19:42:13',
     '17 Jul 2026, 18:05:04',
   ]);
-  expect(authorization).toBe('Bearer correct-secret');
+  expect(authorization).toBeUndefined();
+  await expect(password).toHaveValue('');
+  expect(await page.evaluate(() => sessionStorage.getItem('lostfrxks.analytics.adminPassword'))).toBeNull();
 });
 
 test('private dashboard explains when no visit history exists yet', async ({ page }) => {
@@ -132,7 +144,7 @@ test('private dashboard explains when no visit history exists yet', async ({ pag
   await expect(page.locator('[data-visit-history]')).toHaveText('No visits recorded yet.');
 });
 
-test('secret gate stays anonymous for wrong passwords and retains retry passwords', async ({ page }) => {
+test('secret gate stays anonymous and clears entered passwords even on failure', async ({ page }) => {
   let status = 401;
   await page.route(STATS_ENDPOINT, (route) => route.fulfill({
     status,
@@ -152,7 +164,7 @@ test('secret gate stays anonymous for wrong passwords and retains retry password
   await password.fill('correct-secret');
   await password.press('Enter');
   await expect(page.locator('[data-error]')).toHaveText('Temporarily unavailable.');
-  await expect(password).toHaveValue('correct-secret');
+  await expect(password).toHaveValue('');
   await expect(page.locator('[data-dashboard]')).toBeHidden();
 });
 
@@ -228,4 +240,46 @@ test('mobile cards safely display hostile metadata without horizontal overflow',
   await expect(page.locator('[data-visit-history] img')).toHaveCount(0);
   expect(await page.evaluate(() => window.__injected)).toBeUndefined();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+
+test('cookie session restores after reload, clears legacy storage, and logout stays locked after reload', async ({page}) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem('lostfrxks.analytics.adminPassword', 'old-password');
+    localStorage.setItem('lostfrxks.analytics.adminPassword', 'old-password');
+  });
+  const privateRequests = [];
+  page.on('request', request => { if (/\/api\/analytics\/(stats|owner)/.test(request.url())) privateRequests.push(request); });
+  await page.route(STATS_ENDPOINT, route => route.fulfill({json: detailedResponse}));
+  await unlock(page);
+  await page.reload();
+  await expect(page.locator('[data-dashboard]')).toBeVisible();
+  expect(await page.evaluate(() => [sessionStorage.getItem('lostfrxks.analytics.adminPassword'), localStorage.getItem('lostfrxks.analytics.adminPassword')])).toEqual([null, null]);
+  for (const request of privateRequests) {
+    expect(request.headers().authorization).toBeUndefined();
+    expect(request.postData() || '').not.toContain('correct-secret');
+  }
+  await page.getByRole('button', {name: 'Lock', exact: true}).click();
+  await expect(page.getByLabel(/access password/i)).toBeEnabled();
+  await page.reload();
+  await expect(page.getByLabel(/access password/i)).toBeEnabled();
+  await expect(page.locator('[data-dashboard]')).toBeHidden();
+  await expect(page.locator('[data-visit-history]')).toBeEmpty();
+});
+
+test('locking during a slow refresh prevents private data from reappearing', async ({page}) => {
+  let resolveRefresh;
+  let reads = 0;
+  await page.route(STATS_ENDPOINT, async route => {
+    if (++reads > 1) await new Promise(resolve => { resolveRefresh = resolve; });
+    await route.fulfill({json: detailedResponse});
+  });
+  await unlock(page);
+  await page.getByRole('button', {name: 'Refresh', exact: true}).click();
+  await expect.poll(() => Boolean(resolveRefresh)).toBe(true);
+  await page.getByRole('button', {name: 'Lock', exact: true}).click();
+  resolveRefresh();
+  await expect(page.getByLabel(/access password/i)).toBeEnabled();
+  await expect(page.locator('[data-dashboard]')).toBeHidden();
+  await expect(page.locator('[data-visit-history]')).toBeEmpty();
 });
